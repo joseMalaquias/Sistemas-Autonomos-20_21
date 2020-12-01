@@ -2,6 +2,9 @@
 import rospy
 import math
 import numpy as np
+import tf.transformations
+from geometry_msgs.msg import Pose, PoseArray
+import std_msgs.msg
 
 #ROS messages
 
@@ -46,6 +49,18 @@ class particleFilter():
 
 	self.getMap()
 	self.initializeParticles()
+
+	# Publisher
+	# Publisher needs a queue_size, see if that matters
+	self.particlePublisher = rospy.Publisher("/MCLocalization/particleCloud", PoseArray, queue_size = 1)
+
+	# JUST FOR TEST FOR NOW
+	#https://answers.ros.org/question/316829/how-to-publish-a-pose-in-quaternion/
+	rate = rospy.Rate(1) # Hz
+        while not rospy.is_shutdown():
+            self.publishParticles()
+	    print("Publishing...\n")
+            rate.sleep()
 
     def getMap(self):
 
@@ -96,15 +111,69 @@ class particleFilter():
 	#https://numpy.org/doc/stable/reference/random/generated/numpy.random.random_sample.html
 	# Convert angle to a number between 0 and 2*Pi
         self.particles[:,2] = np.random.random_sample(self.numParticles) * math.pi * 2.0
-	
-        #TODO
 
 	# Convert map indices to real world coordinates
-	print("Dont forget to convert coordinates to real world\n")
+	self.convertToWorld()
         
 	print("Particles Initialized.\n")
 
 	return
+    
+    #https://answers.ros.org/question/10268/where-am-i-in-the-map/?fbclid=IwAR2IQXDmSXQZkBQK4wDJ-243bbHMw-noLNU18-E7FSxcqNfv3yxqESfhDZM
+    #https://answers.ros.org/question/161576/solved-getting-map-co-ordinates/?fbclid=IwAR3dcXXAKbBcXLDnB2bRI8pQXnzA_eQKZa9e-ilHuhloPB11PBYSg6zcAu0
+    # [x;y] = R * [px * resolution ; py * resolution] + [x0,y0]
+    # R = [(cos theta, -sin theta), (sin theta, cos theta)]
+    def convertToWorld(self):
+
+    	roll, pitch, yaw = tf.transformations.euler_from_quaternion((self.mapInfo.origin.orientation.x, self.mapInfo.origin.orientation.y, self.mapInfo.origin.orientation.z, self.mapInfo.origin.orientation.w)) 
+	
+	# Theta = yaw
+    	cos = math.cos(yaw)
+	sin = math.sin(yaw)	
+	
+	# Store x values temporarily since it will be changed
+    	tempX = np.copy(self.particles[:,0])
+
+    	self.particles[:,0] = (cos*self.particles[:,0] - sin*self.particles[:,1]) * float(self.mapInfo.resolution) + self.mapInfo.origin.position.x
+
+    	self.particles[:,1] = (sin*tempX + cos*self.particles[:,1]) * float(self.mapInfo.resolution) + self.mapInfo.origin.position.y
+
+    	self.particles[:,2] += yaw
+
+	return
+
+    def publishParticles(self):
+	#http://docs.ros.org/en/melodic/api/geometry_msgs/html/msg/PoseArray.html
+	#http://docs.ros.org/en/diamondback/api/geometry_msgs/html/msg/PoseArray.html
+	#https://answers.ros.org/question/60209/what-is-the-proper-way-to-create-a-header-with-python/
+	#https://www.programcreek.com/python/example/86351/std_msgs.msg.Header
+
+	particleCloud = PoseArray()
+	
+	# Create PoseArray header
+	particleCloud.header = std_msgs.msg.Header()
+	particleCloud.header.stamp = rospy.Time.now()
+	particleCloud.header.frame_id = "map"
+
+	particlePoses = []
+	for i in range(self.numParticles):
+	    pose = Pose()
+	    pose.position.x = self.particles[i, 0]
+	    pose.position.y = self.particles[i, 1]
+
+	    #https://answers.ros.org/question/69754/quaternion-transformations-in-python/ 
+            quaternion = tf.transformations.quaternion_from_euler(0, 0, self.particles[i, 2])
+	    pose.orientation.x = quaternion[0]
+            pose.orientation.y = quaternion[1]
+            pose.orientation.z = quaternion[2]
+            pose.orientation.w = quaternion[3]
+	    
+            particlePoses.append(pose)
+
+	particleCloud.poses = particlePoses
+
+	self.particlePublisher.publish(particleCloud)
+
 
 if __name__ == "__main__":
     rospy.init_node("MCLocalization")
