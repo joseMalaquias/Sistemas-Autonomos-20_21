@@ -105,8 +105,8 @@ class particleFilter():
 	#https://numpy.org/doc/stable/reference/random/generated/numpy.random.randint.html
         positions = np.random.randint(0, len(freeSpace[0]), size = self.numParticles)
 
-        self.particles[:,0] = freeSpace[0][positions]
-        self.particles[:,1] = freeSpace[1][positions]
+        self.particles[:,0] = freeSpace[1][positions]
+        self.particles[:,1] = freeSpace[0][positions]
 
 	#https://numpy.org/doc/stable/reference/random/generated/numpy.random.random_sample.html
 	# Convert angle to a number between 0 and 2*Pi
