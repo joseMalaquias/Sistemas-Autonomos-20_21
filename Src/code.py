@@ -68,7 +68,7 @@ class particleFilter():
 	self.mapInfo = mapMsg.info
 
 	# 0: obstacle 1: free
-	self.map = np.zeros(self.mapInfo.height, self.mapInfo.width), dtype = bool)
+	self.map = np.zeros((self.mapInfo.height, self.mapInfo.width), dtype = bool)
 	#print(self.map)
 	#print("\n")
 
