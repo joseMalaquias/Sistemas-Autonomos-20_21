@@ -94,6 +94,7 @@ class particleFilter():
 
 	self.getMap()
 	self.initializeParticles()
+	self.particle = particle()
 
 	# Publisher
 	# Publisher needs a queue_size, see if that matters
