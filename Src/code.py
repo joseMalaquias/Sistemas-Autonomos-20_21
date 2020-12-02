@@ -45,19 +45,19 @@ class particle():
             self.old_msg = copy.deepcopy(self.new_msg)
             self.new_msg = msg.pose.pose.position.x, msg.pose.pose.position.y, msg.pose.pose.orientation.w
             # 2% of traveled distance is added as noise
-            real_delta_x = self.new_msg[0] - self.old_msg[0]
-            real_delta_y = self.new_msg[1] - self.old_msg[1]
-            real_delta_yaw = self.new_msg[2] - self.old_msg[2]
+            self.real_delta_x = self.new_msg[0] - self.old_msg[0]
+            self.real_delta_y = self.new_msg[1] - self.old_msg[1]
+            self.real_delta_yaw = self.new_msg[2] - self.old_msg[2]
             self.noise_x = np.random.normal(
-                loc=0, scale=abs(real_delta_x)*0.02)
+                loc=0, scale=abs(self.real_delta_x)*0.02)
             self.noise_y = np.random.normal(
-                loc=0, scale=abs(real_delta_y)*0.02)
+                loc=0, scale=abs(self.real_delta_y)*0.02)
             self.noise_yaw = np.random.normal(
-                loc=0, scale=abs(real_delta_yaw)*0.02)
+                loc=0, scale=abs(self.real_delta_yaw)*0.02)
             # Distance traveled is calculated
-            self.delta_x = real_delta_x + self.noise_x
-            self.delta_y = real_delta_y + self.noise_y
-            self.delta_theta = real_delta_yaw + self.noise_yaw
+            self.delta_x = self.real_delta_x + self.noise_x
+            self.delta_y = self.real_delta_y + self.noise_y
+            self.delta_theta = self.real_delta_yaw + self.noise_yaw
             self.moveParticle(self.delta_x, self.delta_y, self.delta_theta)
 
     def LaserCallback(self, msg):
@@ -78,6 +78,9 @@ class particle():
 
     def restartMovement(self):
         # print("entra")
+        self.real_delta_x = 0.0
+        self.real_delta_y = 0.0
+        self.real_delta_yaw = 0.0
         self.delta_x = 0.0
         self.delta_y = 0.0
         self.delta_yaw = 0.0
@@ -123,6 +126,7 @@ class particleFilter():
                 self.particles[i, 2] += self.particle.yaw
             self.publishParticles()
             print("Publishing...\n")
+            self.particle.restartMovement()
             rate.sleep()
 
     def getMap(self):
