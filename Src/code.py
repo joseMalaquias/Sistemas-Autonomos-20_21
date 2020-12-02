@@ -4,6 +4,8 @@ import math
 import numpy as np
 import tf.transformations
 from geometry_msgs.msg import Pose, PoseArray
+from nav_msgs.msg import Odometry
+from sensor_msgs.msg import LaserScan
 import std_msgs.msg
 
 #ROS messages
@@ -19,16 +21,59 @@ MAP_TOPIC = "static_map"
 
 #https://stackoverflow.com/questions/4877624/numpy-array-of-objects
 #class particle():
+class particle():
 
-#    def __init__(self):
-#        self.x = 0.0
-#        self.y = 0.0
-#        self.yaw = 0.0
-#
-#    def moveParticle(self, x, y, theta):
-#	self.x = self.x + x
-#	self.y = self.y + y
-#	self.yaw = self.yaw + theta
+    def __init__(self):
+        self.x = 0.0
+        self.y = 0.0
+        self.yaw = 0.0
+	self.first_msg = True
+	rospy.Subscriber("/husky_velocity_controller/odom", Odometry, self.OdometryCallback, queue_size = 10)
+	rospy.Subscriber("/scan", LaserScan, self.LaserCallback, queue_size = 10)
+	
+
+    def OdometryCallback(self, msg):
+	if self.first_msg is True:
+	    self.old_msg = []
+	    self.new_msg = []
+	    self.new_msg = msg.pose.pose.position.x, msg.pose.pose.position.y, msg.pose.pose.orientation.w
+	    self.first_msg = False
+	else:
+	    self.old_msg = copy.deepcopy(self.new_msg)
+	    self.new_msg = msg.pose.pose.position.x, msg.pose.pose.position.y, msg.pose.pose.orientation.w
+	    # print(self.new_msg, self.old_msg)
+	    self.delta_x = self.new_msg[0] - self.old_msg[0]
+	    self.delta_y = self.new_msg[1] - self.old_msg[1]
+	    self.delta_theta = self.new_msg[2] - self.old_msg[2]
+	    self.moveParticle(self.delta_x, self.delta_y, self.delta_theta)
+		
+    def LaserCallback(self, msg):
+	self.angle_max = msg.angle_max
+        self.angle_min = msg.angle_min 
+        self.angle_increment = msg.angle_increment
+        self.range_max = msg.range_max
+        self.ranges = msg.ranges
+	    
+
+    def moveParticle(self, x, y, theta):
+	# self.x = msg.pose.pose.position.x
+	# self.y = msg.pose.pose.position.y
+	# self.yaw = msg.pose.pose.position.w
+	self.x = self.x + x
+	self.y = self.y + y
+	self.yaw = self.yaw + theta
+	# print(self.x, self.y, self.yaw)
+
+
+    def restartMovement(self):
+	# print("entra")
+	self.delta_x = 0.0
+	self.delta_y = 0.0
+	self.delta_yaw = 0.0
+	self.x = 0.0
+	self.y = 0.0
+	self.yaw = 0.0
+		
 
 class particleFilter():
 
@@ -58,6 +103,11 @@ class particleFilter():
 	#https://answers.ros.org/question/316829/how-to-publish-a-pose-in-quaternion/
 	rate = rospy.Rate(1) # Hz
         while not rospy.is_shutdown():
+	    for i in range(self.numParticles):
+		# print("aaa", self.particle.x, self.particle.y, self.particle.yaw)
+	        self.particles[i,0] += self.particle.x
+		self.particles[i,1] += self.particle.y
+		self.particles[i,2] += self.particle.yaw
             self.publishParticles()
 	    print("Publishing...\n")
             rate.sleep()
