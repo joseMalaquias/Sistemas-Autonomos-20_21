@@ -17,6 +17,8 @@ from nav_msgs.srv import GetMap
 
 
 MAP_TOPIC = "static_map"
+ODOMETRY_TOPIC = "/husky_velocity_controller/odom"
+SCAN_TOPIC = "/scan"
 
 # https://stackoverflow.com/questions/4877624/numpy-array-of-objects
 # class particle():
@@ -25,6 +27,7 @@ MAP_TOPIC = "static_map"
 class particle():
 
     def __init__(self):
+        self.one = True
         self.x = 0.0
         self.y = 0.0
         self.yaw = 0.0
@@ -64,18 +67,16 @@ class particle():
         self.angle_increment = msg.angle_increment
         self.range_max = msg.range_max
         self.ranges = msg.ranges
+        if self.one is True:
+            print(self.ranges)
+            self.one = False
 
     def moveParticle(self, x, y, theta):
-        # self.x = msg.pose.pose.position.x
-        # self.y = msg.pose.pose.position.y
-        # self.yaw = msg.pose.pose.position.w
         self.x = self.x + x
         self.y = self.y + y
         self.yaw = self.yaw + theta
-        # print(self.x, self.y, self.yaw)
 
     def restartMovement(self):
-        # print("entra")
         self.real_delta_x = 0.0
         self.real_delta_y = 0.0
         self.real_delta_yaw = 0.0
@@ -105,7 +106,9 @@ class particleFilter():
 
         self.getMap()
         self.initializeParticles()
-        self.particle = particle()
+        self.callbacks = particle()
+        rospy.wait_for_message(ODOMETRY_TOPIC, Odometry)
+        rospy.wait_for_message(SCAN_TOPIC, LaserScan)
 
         # Publisher
         # Publisher needs a queue_size, see if that matters
@@ -117,15 +120,26 @@ class particleFilter():
         rate = rospy.Rate(1)  # Hz
         while not rospy.is_shutdown():
             for i in range(self.numParticles):
-                # print("aaa", self.particle.x, self.particle.y, self.particle.yaw)
-                self.particles[i, 0] += self.particle.x
-                self.particles[i, 1] += self.particle.y
-                self.particles[i, 2] += self.particle.yaw
-
+                self.movementPrediction(i)
+                self.measurePrediction(self.particles[i])
             self.publishParticles()
             print("Publishing...\n")
-            self.particle.restartMovement()
+            self.callbacks.restartMovement()
             rate.sleep()
+
+    def movementPrediction(self, i):
+        self.particles[i, 0] += self.callbacks.x
+        self.particles[i, 1] += self.callbacks.y
+        self.particles[i, 2] += self.callbacks.yaw
+
+    def measurePrediction(self, particlePosition):
+        self.anglesCovered = []
+        for i in range(len(self.callbacks.ranges)):
+            angle = self.callbacks.angle_min + \
+                (self.callbacks.angle_max - self.callbacks.angle_min) * \
+                float(i)/len(self.callbacks.ranges)
+            self.anglesCovered.append(angle)
+        # print(self.anglesCovered)
 
     def getMap(self):
 
