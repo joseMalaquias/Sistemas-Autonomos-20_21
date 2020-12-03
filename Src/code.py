@@ -7,6 +7,7 @@ import tf.transformations
 from geometry_msgs.msg import Pose, PoseArray
 from nav_msgs.msg import Odometry
 from sensor_msgs.msg import LaserScan
+from sys import argv
 import std_msgs.msg
 
 # ROS messages
@@ -14,9 +15,6 @@ import std_msgs.msg
 # Occupancy Grid Map message
 from nav_msgs.srv import GetMap
 
-# Constants
-
-NUMBER_OF_PARTICLES = 100
 
 MAP_TOPIC = "static_map"
 
@@ -91,8 +89,7 @@ class particle():
 
 class particleFilter():
 
-    def __init__(self):
-
+    def __init__(self, NUMBER_OF_PARTICLES):
         self.numParticles = NUMBER_OF_PARTICLES
 
         # https://stackoverflow.com/questions/4877624/numpy-array-of-objects
@@ -124,6 +121,7 @@ class particleFilter():
                 self.particles[i, 0] += self.particle.x
                 self.particles[i, 1] += self.particle.y
                 self.particles[i, 2] += self.particle.yaw
+
             self.publishParticles()
             print("Publishing...\n")
             self.particle.restartMovement()
@@ -252,6 +250,11 @@ class particleFilter():
 
 if __name__ == "__main__":
     rospy.init_node("MCLocalization")
+    if(len(argv) >= 1):
+        numParticles = int(argv[1])
+    else:
+        numParticles = 100
+    print(numParticles)
 
-    pf = particleFilter()
+    pf = particleFilter(numParticles)
     rospy.spin()
