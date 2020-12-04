@@ -27,7 +27,7 @@ SCAN_TOPIC = "/scan"
 class particle():
 
     def __init__(self):
-        self.one = True
+
         self.x = 0.0
         self.y = 0.0
         self.yaw = 0.0
@@ -66,10 +66,8 @@ class particle():
         self.angle_min = msg.angle_min
         self.angle_increment = msg.angle_increment
         self.range_max = msg.range_max
+        self.range_min = msg.range_min
         self.ranges = msg.ranges
-        if self.one is True:
-            print(self.ranges)
-            self.one = False
 
     def moveParticle(self, x, y, theta):
         self.x = self.x + x
@@ -104,6 +102,8 @@ class particleFilter():
         self.map = None
         self.mapInfo = None
 
+        # self.i = 0
+
         self.getMap()
         self.initializeParticles()
         self.callbacks = particle()
@@ -119,13 +119,56 @@ class particleFilter():
         # https://answers.ros.org/question/316829/how-to-publish-a-pose-in-quaternion/
         rate = rospy.Rate(1)  # Hz
         while not rospy.is_shutdown():
+            self.laserSample()
+            self.weights, self.err = [], []
             for i in range(self.numParticles):
                 self.movementPrediction(i)
                 self.measurePrediction(self.particles[i])
+                self.measurePredictionDeviation()
+            self.weighCalculation()
+            self.resampling()
             self.publishParticles()
+            # print(self.weights)
+            # print(sum(self.weights))
             print("Publishing...\n")
             self.callbacks.restartMovement()
             rate.sleep()
+
+    def resampling(self):
+        raise "NotImplementedError"
+
+    def weighCalculation(self):
+        total = sum(self.err)
+        for i in range(len(self.err)):
+            self.weights.append(self.err[i] / total)
+
+    def measurePredictionDeviation(self):
+        deltas = []
+        for i in range(len(self.predictedRanges)):
+            deltas.append((self.rangeSampled[i] - self.predictedRanges[i])**2)
+        self.err.append(np.linalg.norm(deltas)**2)
+
+    def laserSample(self):
+        anglesCovered = []
+        num_LaserBeams = len(self.callbacks.ranges)
+        desired_LaserBeams = 20
+        jump = num_LaserBeams/desired_LaserBeams
+        for i in range(len(self.callbacks.ranges)):
+            angle = self.callbacks.angle_min + i*self.callbacks.angle_increment
+            anglesCovered.append(angle)
+
+        self.anglesSampled = anglesCovered[::jump]
+        self.rangeSampled = []
+        for i in range(0, num_LaserBeams, jump):
+            if self.callbacks.ranges[i] == float("inf"):
+                # print("entra")
+                value = self.callbacks.range_max
+            else:
+                # print(type(self.callbacks.ranges[i]))
+                value = self.callbacks.ranges[i]
+            self.rangeSampled.append(value)
+        self.aux = self.callbacks.ranges[::jump]
+        # print("484", self.aux, "-------------", self.rangeSampled, "4949")
 
     def movementPrediction(self, i):
         self.particles[i, 0] += self.callbacks.x
@@ -133,13 +176,35 @@ class particleFilter():
         self.particles[i, 2] += self.callbacks.yaw
 
     def measurePrediction(self, particlePosition):
-        self.anglesCovered = []
-        for i in range(len(self.callbacks.ranges)):
-            angle = self.callbacks.angle_min + \
-                (self.callbacks.angle_max - self.callbacks.angle_min) * \
-                float(i)/len(self.callbacks.ranges)
-            self.anglesCovered.append(angle)
-        # print(self.anglesCovered)
+
+        self.predictedRanges = []
+        currentAngle = self.callbacks.angle_min
+        for currentAngle in self.anglesSampled:
+
+            currentRange = self.callbacks.range_min
+            while(currentRange <= self.callbacks.range_max):
+                x_laser = currentRange * \
+                    math.cos(particlePosition[2] + currentAngle)
+                y_laser = currentRange * \
+                    math.sin(particlePosition[2] + currentAngle)
+                # print(x_laser, y_laser)
+                x_predicted = particlePosition[0] + x_laser
+                y_predicted = particlePosition[1] + y_laser
+                # print(x_predicted, y_predicted)
+                x_predicted_grid, y_predicted_grid = self.convertToGrid(
+                    x_predicted, y_predicted)
+                # print(x_predicted_grid, y_predicted_grid)
+                # print(self.map[x_predicted_grid, y_predicted_grid])
+                if(self.map[x_predicted_grid, y_predicted_grid] == 0):
+                    # print("Entra")
+                    break
+                currentRange += self.mapInfo.resolution
+            if(currentRange > self.callbacks.range_max):
+                currentRange = self.callbacks.range_max
+            elif (currentRange < self.callbacks.range_min):
+                currentRange = self.callbacks.range_min
+            self.predictedRanges.append(currentRange)
+        # print(self.predictedRanges)
 
     def getMap(self):
 
@@ -210,14 +275,13 @@ class particleFilter():
 
         roll, pitch, yaw = tf.transformations.euler_from_quaternion(
             (self.mapInfo.origin.orientation.x, self.mapInfo.origin.orientation.y, self.mapInfo.origin.orientation.z, self.mapInfo.origin.orientation.w))
-
+        # print("este", self.mapInfo.origin.orientation.y, roll, pitch, yaw)
         # Theta = yaw
         cos = math.cos(yaw)
         sin = math.sin(yaw)
 
         # Store x values temporarily since it will be changed
         tempX = np.copy(self.particles[:, 0])
-
         self.particles[:, 0] = (cos*self.particles[:, 0] - sin*self.particles[:, 1]) * \
             float(self.mapInfo.resolution) + self.mapInfo.origin.position.x
 
@@ -227,6 +291,13 @@ class particleFilter():
         self.particles[:, 2] += yaw
 
         return
+
+    def convertToGrid(self, x, y):
+        x_grid = int((x - self.mapInfo.origin.position.x) /
+                     self.mapInfo.resolution)
+        y_grid = int((y - self.mapInfo.origin.position.y) /
+                     self.mapInfo.resolution)
+        return x_grid, y_grid
 
     def publishParticles(self):
         # http://docs.ros.org/en/melodic/api/geometry_msgs/html/msg/PoseArray.html
