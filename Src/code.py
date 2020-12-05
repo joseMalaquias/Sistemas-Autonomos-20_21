@@ -2,6 +2,7 @@
 import rospy
 import copy
 import math
+import random
 import numpy as np
 import tf.transformations
 from geometry_msgs.msg import Pose, PoseArray
@@ -120,27 +121,42 @@ class particleFilter():
         rate = rospy.Rate(1)  # Hz
         while not rospy.is_shutdown():
             self.laserSample()
-            self.weights, self.err = [], []
+            self.err = []
             for i in range(self.numParticles):
                 self.movementPrediction(i)
                 self.measurePrediction(self.particles[i])
                 self.measurePredictionDeviation()
-            self.weighCalculation()
+            self.weightCalculation()
             self.resampling()
             self.publishParticles()
-            # print(self.weights)
+            # print(self.particles)
             # print(sum(self.weights))
             print("Publishing...\n")
             self.callbacks.restartMovement()
             rate.sleep()
 
     def resampling(self):
-        raise "NotImplementedError"
+        new_particles = []
+        # print(1.0/self.numParticles)
+        r = random.uniform(0, 1.0/self.numParticles)
+        c = self.particles[0][3]
+        i = 0
+        for m in range(self.numParticles):
+            U = r + float(m)/self.numParticles
+            # print("asd", m, U)
+            while U > c:
+                i = i + 1
+                c = c + self.particles[i][3]
+            new_particles.append(self.particles[i])
+        print(self.particles[:, 3], "iapuhfdspihs")
+        for i in range(len(self.particles)):
+            self.particles[i] = new_particles[i]
+        # print(self.particles)
 
-    def weighCalculation(self):
+    def weightCalculation(self):
         total = sum(self.err)
         for i in range(len(self.err)):
-            self.weights.append(self.err[i] / total)
+            self.particles[i][3] = self.err[i] / total
 
     def measurePredictionDeviation(self):
         deltas = []
