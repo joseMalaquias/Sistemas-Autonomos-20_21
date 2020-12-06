@@ -32,6 +32,7 @@ class particle():
         self.x = 0.0
         self.y = 0.0
         self.yaw = 0.0
+        self.v = 0.0
         self.first_msg = True
         rospy.Subscriber("/husky_velocity_controller/odom",
                          Odometry, self.OdometryCallback, queue_size=10)
@@ -41,26 +42,68 @@ class particle():
         if self.first_msg is True:
             self.old_msg = []
             self.new_msg = []
-            self.new_msg = msg.pose.pose.position.x, msg.pose.pose.position.y, msg.pose.pose.orientation.w
+            q2 = [0, 0, 0, 0]
+
+            # http://wiki.ros.org/tf2/Tutorials/Quaternions#Relative_rotations
+            q2[0] = msg.pose.pose.orientation.x
+            q2[1] = msg.pose.pose.orientation.y
+            q2[2] = msg.pose.pose.orientation.z
+            q2[3] = msg.pose.pose.orientation.w  # Negate for inverse
+            self.new_msg = msg.pose.pose.position.x, msg.pose.pose.position.y, q2
             self.first_msg = False
         else:
+            q2, aux_yaw_before, aux_yaw_after = [
+                0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]
+
             self.old_msg = copy.deepcopy(self.new_msg)
-            self.new_msg = msg.pose.pose.position.x, msg.pose.pose.position.y, msg.pose.pose.orientation.w
+            q2[0] = msg.pose.pose.orientation.x
+            q2[1] = msg.pose.pose.orientation.y
+            q2[2] = msg.pose.pose.orientation.z
+            q2[3] = msg.pose.pose.orientation.w
+            self.new_msg = msg.pose.pose.position.x, msg.pose.pose.position.y, q2
+            if msg.twist.twist.linear.x > 0:
+                self.forward_or_backwards = 1
+            else:
+                self.forward_or_backwards = -1
+
             # 2% of traveled distance is added as noise
             self.real_delta_x = self.new_msg[0] - self.old_msg[0]
             self.real_delta_y = self.new_msg[1] - self.old_msg[1]
-            self.real_delta_yaw = self.new_msg[2] - self.old_msg[2]
-            self.noise_x = np.random.normal(
-                loc=0, scale=abs(self.real_delta_x)*0.02)
-            self.noise_y = np.random.normal(
-                loc=0, scale=abs(self.real_delta_y)*0.02)
-            self.noise_yaw = np.random.normal(
-                loc=0, scale=abs(self.real_delta_yaw)*0.02)
+            _, _, movement_orientation = tf.transformations.euler_from_quaternion(
+                q2)
+            self.real_delta_yaw = tf.transformations.quaternion_multiply(
+                self.new_msg[2], tf.transformations.quaternion_inverse(self.old_msg[2]))
+
+            roll, pitch, yaw = tf.transformations.euler_from_quaternion(
+                self.real_delta_yaw)
+
+            if(self.real_delta_x != 0):
+                self.noise_x = np.random.normal(
+                    loc=0, scale=abs(self.real_delta_x)*0.1)
+            if(self.real_delta_y != 0):
+                self.noise_y = np.random.normal(
+                    loc=0, scale=abs(self.real_delta_y)*0.1)
+            if(yaw != 0):
+                noise_yaw = np.random.normal(
+                    loc=0, scale=abs(yaw)*0.02)
+            temp_yaw = tf.transformations.quaternion_from_euler(0, 0, yaw)
+            self.noise_yaw = tf.transformations.quaternion_from_euler(
+                0, 0, noise_yaw)
             # Distance traveled is calculated
             self.delta_x = self.real_delta_x + self.noise_x
             self.delta_y = self.real_delta_y + self.noise_y
-            self.delta_theta = self.real_delta_yaw + self.noise_yaw
-            self.moveParticle(self.delta_x, self.delta_y, self.delta_theta)
+            self.delta_theta = tf.transformations.quaternion_multiply(
+                temp_yaw, self.noise_yaw)
+            aux_yaw_before = tf.transformations.quaternion_from_euler(
+                0, 0, self.yaw)
+            aux_yaw_after = tf.transformations.quaternion_multiply(
+                aux_yaw_before, self.delta_theta)
+            self.x += self.delta_x
+            self.y += self.delta_y
+            self.v = math.sqrt(self.x**2 + self.y**2)
+            _, _, self.yaw = tf.transformations.euler_from_quaternion(
+                (aux_yaw_after[0], aux_yaw_after[1], aux_yaw_after[2], aux_yaw_after[3]))
+            # self.moveParticle(self.delta_x, self.delta_y, self.delta_theta)
 
     def LaserCallback(self, msg):
         self.angle_max = msg.angle_max
@@ -70,10 +113,7 @@ class particle():
         self.range_min = msg.range_min
         self.ranges = msg.ranges
 
-    def moveParticle(self, x, y, theta):
-        self.x = self.x + x
-        self.y = self.y + y
-        self.yaw = self.yaw + theta
+    # def moveParticle(self, x, y, theta):
 
     def restartMovement(self):
         self.real_delta_x = 0.0
@@ -124,10 +164,10 @@ class particleFilter():
             self.err = []
             for i in range(self.numParticles):
                 self.movementPrediction(i)
-                self.measurePrediction(self.particles[i])
-                self.measurePredictionDeviation()
-            self.weightCalculation()
-            self.resampling()
+                # self.measurePrediction(self.particles[i])
+                # self.measurePredictionDeviation()
+            # self.weightCalculation()
+            # self.resampling()
             self.publishParticles()
             # print(self.particles)
             # print(sum(self.weights))
@@ -187,8 +227,15 @@ class particleFilter():
         # print("484", self.aux, "-------------", self.rangeSampled, "4949")
 
     def movementPrediction(self, i):
-        self.particles[i, 0] += self.callbacks.x
-        self.particles[i, 1] += self.callbacks.y
+
+        # print(self.callbacks.v, self.callbacks.v *
+        #      math.cos(self.particles[i][2]), self.callbacks.v*math.sin(self.particles[i][2]))
+
+        self.particles[i, 0] += self.callbacks.forward_or_backwards * \
+            self.callbacks.v*math.cos(self.particles[i][2])
+        self.particles[i, 1] += self.callbacks.forward_or_backwards * \
+            self.callbacks.v*math.sin(self.particles[i][2])
+        print(math.cos(self.particles[i, 2]), math.sin(self.particles[i, 2]))
         self.particles[i, 2] += self.callbacks.yaw
 
     def measurePrediction(self, particlePosition):
