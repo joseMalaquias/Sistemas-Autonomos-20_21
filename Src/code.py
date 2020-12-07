@@ -166,9 +166,9 @@ class particleFilter():
             for i in range(self.numParticles):
                 self.movementPrediction(i)
                 self.measurePrediction(self.particles[i])
-                self.measurePredictionDeviation()
+                self.measurePredictionDeviation(self.particles[i])
             self.weightCalculation()
-            print(self.particles)
+            # print(self.particles)
             self.resampling()
             self.publishParticles()
             # print(self.particles)
@@ -200,11 +200,16 @@ class particleFilter():
         for i in range(len(self.err)):
             self.particles[i][3] = self.err[i] / total
 
-    def measurePredictionDeviation(self):
+    def measurePredictionDeviation(self, particlePos):
         deltas = []
+        x, y = self.convertToGrid(particlePos[0], particlePos[1])
+        if(self.map[x, y] == 0):
+            print("enf")
+            self.err.append(math.exp(-400))
+            return
         for i in range(len(self.predictedRanges)):
             deltas.append((self.rangeSampled[i] - self.predictedRanges[i]))
-        self.err.append(np.linalg.norm(deltas))
+        self.err.append(math.exp(-(np.linalg.norm(deltas))))
         # print(self.err[-1])
 
     def laserSample(self):
@@ -241,7 +246,6 @@ class particleFilter():
         self.predictedRanges = []
         currentAngle = self.callbacks.angle_min
         for currentAngle in self.anglesSampled:
-
             currentRange = self.callbacks.range_min
             while(currentRange <= self.callbacks.range_max):
                 x_laser = currentRange * \
