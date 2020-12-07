@@ -33,6 +33,7 @@ class particle():
         self.y = 0.0
         self.yaw = 0.0
         self.v = 0.0
+        self.forward_or_backwards = 1
         self.first_msg = True
         rospy.Subscriber("/husky_velocity_controller/odom",
                          Odometry, self.OdometryCallback, queue_size=10)
@@ -164,10 +165,11 @@ class particleFilter():
             self.err = []
             for i in range(self.numParticles):
                 self.movementPrediction(i)
-                # self.measurePrediction(self.particles[i])
-                # self.measurePredictionDeviation()
-            # self.weightCalculation()
-            # self.resampling()
+                self.measurePrediction(self.particles[i])
+                self.measurePredictionDeviation()
+            self.weightCalculation()
+            print(self.particles)
+            self.resampling()
             self.publishParticles()
             # print(self.particles)
             # print(sum(self.weights))
@@ -188,7 +190,7 @@ class particleFilter():
                 i = i + 1
                 c = c + self.particles[i][3]
             new_particles.append(self.particles[i])
-        print(self.particles[:, 3], "iapuhfdspihs")
+        # print(self.particles[:, 3], "iapuhfdspihs")
         for i in range(len(self.particles)):
             self.particles[i] = new_particles[i]
         # print(self.particles)
@@ -201,8 +203,9 @@ class particleFilter():
     def measurePredictionDeviation(self):
         deltas = []
         for i in range(len(self.predictedRanges)):
-            deltas.append((self.rangeSampled[i] - self.predictedRanges[i])**2)
-        self.err.append(np.linalg.norm(deltas)**2)
+            deltas.append((self.rangeSampled[i] - self.predictedRanges[i]))
+        self.err.append(np.linalg.norm(deltas))
+        # print(self.err[-1])
 
     def laserSample(self):
         anglesCovered = []
@@ -217,7 +220,6 @@ class particleFilter():
         self.rangeSampled = []
         for i in range(0, num_LaserBeams, jump):
             if self.callbacks.ranges[i] == float("inf"):
-                # print("entra")
                 value = self.callbacks.range_max
             else:
                 # print(type(self.callbacks.ranges[i]))
@@ -228,14 +230,10 @@ class particleFilter():
 
     def movementPrediction(self, i):
 
-        # print(self.callbacks.v, self.callbacks.v *
-        #      math.cos(self.particles[i][2]), self.callbacks.v*math.sin(self.particles[i][2]))
-
         self.particles[i, 0] += self.callbacks.forward_or_backwards * \
             self.callbacks.v*math.cos(self.particles[i][2])
         self.particles[i, 1] += self.callbacks.forward_or_backwards * \
             self.callbacks.v*math.sin(self.particles[i][2])
-        print(math.cos(self.particles[i, 2]), math.sin(self.particles[i, 2]))
         self.particles[i, 2] += self.callbacks.yaw
 
     def measurePrediction(self, particlePosition):
