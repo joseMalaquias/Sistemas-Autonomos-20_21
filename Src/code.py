@@ -18,7 +18,7 @@ from nav_msgs.srv import GetMap
 
 
 MAP_TOPIC = "static_map"
-ODOMETRY_TOPIC = "/husky_velocity_controller/odom"
+ODOMETRY_TOPIC = "/odometry/filtered"
 SCAN_TOPIC = "/scan"
 
 # https://stackoverflow.com/questions/4877624/numpy-array-of-objects
@@ -32,10 +32,13 @@ class particle():
         self.x = 0.0
         self.y = 0.0
         self.yaw = 0.0
+        self.noise_x = 0.0
+        self.noise_y = 0.0
+        self.noise_yaw = 0.0
         self.v = 0.0
         self.forward_or_backwards = 1
         self.first_msg = True
-        rospy.Subscriber("/husky_velocity_controller/odom",
+        rospy.Subscriber("/odometry/filtered",
                          Odometry, self.OdometryCallback, queue_size=10)
         rospy.Subscriber("/scan", LaserScan, self.LaserCallback, queue_size=10)
 
@@ -53,6 +56,7 @@ class particle():
             self.new_msg = msg.pose.pose.position.x, msg.pose.pose.position.y, q2
             self.first_msg = False
         else:
+            noise_yaw = 0.0
             q2, aux_yaw_before, aux_yaw_after = [
                 0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]
 
@@ -70,11 +74,14 @@ class particle():
             # 2% of traveled distance is added as noise
             self.real_delta_x = self.new_msg[0] - self.old_msg[0]
             self.real_delta_y = self.new_msg[1] - self.old_msg[1]
+
             _, _, movement_orientation = tf.transformations.euler_from_quaternion(
                 q2)
+            # difference between old msg yaw and new msg yaw
             self.real_delta_yaw = tf.transformations.quaternion_multiply(
                 self.new_msg[2], tf.transformations.quaternion_inverse(self.old_msg[2]))
 
+            # yaw from calculated values
             roll, pitch, yaw = tf.transformations.euler_from_quaternion(
                 self.real_delta_yaw)
 
@@ -160,6 +167,13 @@ class particleFilter():
         # JUST FOR TEST FOR NOW
         # https://answers.ros.org/question/316829/how-to-publish-a-pose-in-quaternion/
         rate = rospy.Rate(1)  # Hz
+        # q = [0.0, 0.0, -0.704078414818, 0.710122232991
+        #     ]
+        # _, _, yaw = tf.transformations.euler_from_quaternion(q)
+        # self.particles[0][0] = 0.000338795703121
+
+        # self.particles[0][1] = 0.0  # -0.387538877942
+        # self.particles[0][2] = yaw
         while not rospy.is_shutdown():
             self.laserSample()
             self.err = []
@@ -169,7 +183,7 @@ class particleFilter():
                 self.measurePredictionDeviation(self.particles[i])
             self.weightCalculation()
             # print(self.particles)
-            self.resampling()
+            # self.resampling()
             self.publishParticles()
             # print(self.particles)
             # print(sum(self.weights))
@@ -204,24 +218,24 @@ class particleFilter():
         deltas = []
         x, y = self.convertToGrid(particlePos[0], particlePos[1])
         if(self.map[x, y] == 0):
-            print("enf")
             self.err.append(math.exp(-400))
             return
         for i in range(len(self.predictedRanges)):
             deltas.append((self.rangeSampled[i] - self.predictedRanges[i]))
+        # print("RESULTADO: ", np.linalg.norm(deltas))
         self.err.append(math.exp(-(np.linalg.norm(deltas))))
         # print(self.err[-1])
 
     def laserSample(self):
         anglesCovered = []
         num_LaserBeams = len(self.callbacks.ranges)
-        desired_LaserBeams = 20
+        desired_LaserBeams = 30
         jump = num_LaserBeams/desired_LaserBeams
         for i in range(len(self.callbacks.ranges)):
             angle = self.callbacks.angle_min + i*self.callbacks.angle_increment
             anglesCovered.append(angle)
 
-        self.anglesSampled = anglesCovered[::jump]
+        self.anglesSampled = anglesCovered[:: jump]
         self.rangeSampled = []
         for i in range(0, num_LaserBeams, jump):
             if self.callbacks.ranges[i] == float("inf"):
@@ -229,6 +243,10 @@ class particleFilter():
             else:
                 # print(type(self.callbacks.ranges[i]))
                 value = self.callbacks.ranges[i]
+            _, _, yaw = tf.transformations.euler_from_quaternion(
+                self.callbacks.new_msg[2])
+            # print("Real Yaw:", yaw, "Real Angle:", self.callbacks.angle_min + i *
+            #      self.callbacks.angle_increment, "Real Range:", value)
             self.rangeSampled.append(value)
         self.aux = self.callbacks.ranges[::jump]
         # print("484", self.aux, "-------------", self.rangeSampled, "4949")
@@ -245,13 +263,18 @@ class particleFilter():
 
         self.predictedRanges = []
         currentAngle = self.callbacks.angle_min
+        orig = tf.transformations.quaternion_from_euler(
+            0, 0, particlePosition[2])
         for currentAngle in self.anglesSampled:
+            rot = tf.transformations.quaternion_from_euler(0, 0, currentAngle)
+            _, _, laser_rot = tf.transformations.euler_from_quaternion(
+                tf.transformations.quaternion_multiply(orig, rot))
             currentRange = self.callbacks.range_min
             while(currentRange <= self.callbacks.range_max):
                 x_laser = currentRange * \
-                    math.cos(particlePosition[2] + currentAngle)
+                    math.cos(laser_rot)
                 y_laser = currentRange * \
-                    math.sin(particlePosition[2] + currentAngle)
+                    math.sin(laser_rot)
                 # print(x_laser, y_laser)
                 x_predicted = particlePosition[0] + x_laser
                 y_predicted = particlePosition[1] + y_laser
@@ -268,8 +291,11 @@ class particleFilter():
                 currentRange = self.callbacks.range_max
             elif (currentRange < self.callbacks.range_min):
                 currentRange = self.callbacks.range_min
+            # print("Yaw:", particlePosition[2], "Angle:",
+            #      currentAngle, "Calculated Angle:", particlePosition[2]+currentAngle, "Improved:", laser_rot, "Range:", currentRange)
             self.predictedRanges.append(currentRange)
         # print(self.predictedRanges)
+        # print(self.rangeSampled)
 
     def getMap(self):
 
