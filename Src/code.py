@@ -1,4 +1,5 @@
 # Libraries
+from nav_msgs.srv import GetMap
 import rospy
 import math
 import random
@@ -16,7 +17,6 @@ from multiprocessing import Queue, Process
 # ROS messages
 
 # Occupancy Grid Map message
-from nav_msgs.srv import GetMap
 
 
 MAP_TOPIC = "static_map"
@@ -444,6 +444,10 @@ class particleFilter():
             bad_particles, good_particles, very_good_particles)
 
     def getMap(self):
+        """
+        Gets all the necessary information about the map as well as
+        the occupied and free positions on the map
+        """
 
         # http://docs.ros.org/en/diamondback/api/map_server/html/consumer_8py_source.html
 
@@ -473,7 +477,14 @@ class particleFilter():
 
     def initializeNewParticle(self, bad_particles, good_particles,
                               very_good_particles):
+        """
+        Initializes new particles depending on the existance of
+        very good, good and bad particles
+        """
 
+        # If very good particles exist, all the remaining particles
+        # will be relocated to a location close to the very good
+        # particles
         if(len(very_good_particles) >= 1):
             j = 0
             for i in range(self.numParticles):
@@ -494,6 +505,9 @@ class particleFilter():
                         j = 0
             return
 
+        # If good particles exist and there is no very good particle,
+        # all the bad particles will be relocated to a location close
+        # to the good particles
         if(len(good_particles) >= 1):
             j = 0
             for i in bad_particles:
@@ -514,6 +528,8 @@ class particleFilter():
                     j = 0
             return
 
+        # If there is no very good or good particles, the bad particles will be
+        # relocated to a random position on the map
         for i in bad_particles:
             # https://thispointer.com/find-the-index-of-a-value-in-numpy-array/
             freeSpace = np.where(self.map == 1)
@@ -550,6 +566,9 @@ class particleFilter():
             self.particles[i, 2] += yaw
 
     def initializeParticles(self):
+        """
+        Initial inicialization of particles
+        """
 
         print("Initializing the particles...\n")
 
@@ -579,6 +598,9 @@ class particleFilter():
     # [x;y] = R * [px * resolution ; py * resolution] + [x0,y0]
     # R = [(cos theta, -sin theta), (sin theta, cos theta)]
     def convertToWorld(self):
+        """
+        Converts the coordinates of grid map to real world coordinates
+        """
 
         roll, pitch, yaw = tf.transformations.euler_from_quaternion(
             (self.mapInfo.origin.orientation.x,
@@ -603,6 +625,9 @@ class particleFilter():
         return
 
     def convertToGrid(self, x, y):
+        """
+        Converts from real world coordinates to Grid Map coordinates
+        """
         x_grid = int((x - self.mapInfo.origin.position.x) /
                      self.mapInfo.resolution)
         y_grid = int((y - self.mapInfo.origin.position.y) /
@@ -610,6 +635,10 @@ class particleFilter():
         return x_grid, y_grid
 
     def publishParticles(self):
+        """
+        Function responsible for publishing the particles
+        """
+
         # http://docs.ros.org/en/melodic/api/geometry_msgs/html/msg/PoseArray.html
         # http://docs.ros.org/en/diamondback/api/geometry_msgs/html/msg/PoseArray.html
         # https://answers.ros.org/question/60209/what-is-the-proper-way-to-create-a-header-with-python/
