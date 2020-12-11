@@ -10,6 +10,7 @@ from sensor_msgs.msg import LaserScan
 from sys import argv
 import std_msgs.msg
 import threading
+from multiprocessing import Queue, Process
 
 
 # ROS messages
@@ -130,6 +131,10 @@ class particleFilter():
         # In the beginning, all particles have the same weight
         self.particles[:, 3] = 1.0 / self.numParticles
 
+        self.desired_LaserBeams = 16
+        self.predictedRanges = np.zeros(
+            shape=(self.numParticles, self.desired_LaserBeams))
+
         self.map = None
         self.mapInfo = None
 
@@ -147,36 +152,46 @@ class particleFilter():
         # JUST FOR TEST FOR NOW
         # https://answers.ros.org/question/316829/how-to-publish-a-pose-in-quaternion/
         rate = rospy.Rate(2)  # Hz
-
+        queue = Queue()
         while not rospy.is_shutdown():
-            # _, _, yaw = tf.transformations.euler_from_quaternion([
-            #    0.0, 0.0, -0.000108081936731, 0.999999994159])
             self.newMovement()
             self.laserSample()
             self.particleWeight = np.array([])
             self.particleDifference = np.array([])
-            # self.particles[0, 0] = 0.000605634648655
-            # self.particles[0, 1] = 0.0
-            # self.particles[0, 2] = yaw
-            # self.particles
-
+            queue_aux = []
             if(self.v >= 0.001 or abs(self.yaw) >= 0.001):
                 for i in range(self.numParticles):
                     self.movementPrediction(i)
-                    self.measurePrediction(self.particles[i])
-                    self.measurePredictionDeviation(self.particles[i])
+                for i in range(self.numParticles):
+                    thread1 = Process(
+                        target=self.measurePrediction, args=(self.particles[i],
+                                                             i, queue,))
+                    thread1.start()
+                    queue_aux.append(queue.get())
+                for i in range(self.numParticles):
+                    self.predictedRanges[queue_aux[i][0]] = queue_aux[i][1]
+                for i in range(self.numParticles):
+                    self.measurePredictionDeviation(self.particles[i], i)
                 self.weightCalculation()
                 self.resampling()
-                self.particleDeprivation()
+                if self.v >= 0.1:
+                    self.particleDeprivation()
+            # print(self.particles)
             self.publishParticles()
             print("Publishing...\n")
             rate.sleep()
 
     def particleDeprivation(self):
+        good_particles, bad_particles = [], []
         for i in range(self.numParticles):
-            if self.particleDifference[i] >= \
-                    np.linalg.norm([7]*self.desired_LaserBeams):
-                self.initializeNewParticle(i)
+            if self.particleDifference[i] <= \
+                    np.linalg.norm([1]*self.desired_LaserBeams):
+                good_particles.append(i)
+            elif self.particleDifference[i] >= \
+                    np.linalg.norm([6]*self.desired_LaserBeams):
+                bad_particles.append(i)
+        # print(good_particles)
+        self.initializeNewParticle(bad_particles, good_particles)
 
     def newMovement(self):
         self.mutex.acquire()
@@ -210,7 +225,7 @@ class particleFilter():
         for i in range(self.numParticles):
             self.particles[i, 3] = self.particleWeight[i] / totalSum
 
-    def measurePredictionDeviation(self, particlePos):
+    def measurePredictionDeviation(self, particlePos, index):
         rangesDifference = np.array([])
         x, y = self.convertToGrid(particlePos[0], particlePos[1])
         if(self.map[x, y] == 0):
@@ -219,17 +234,17 @@ class particleFilter():
             self.particleDifference = np.append(
                 self.particleDifference, self.desired_LaserBeams * 1000)
             return
-        for i in range(len(self.predictedRanges)):
+        for i in range(len(self.predictedRanges[index])):
             if self.rangeSampled[i] == float("inf"):
                 continue
             rangesDifference = np.append(
                 rangesDifference, (self.rangeSampled[i] -
-                                   self.predictedRanges[i]))
+                                   self.predictedRanges[index, i]))
 
         particleDifference_aux = np.linalg.norm(rangesDifference)
         self.particleDifference = np.append(
             self.particleDifference, particleDifference_aux)
-        laserDeviation = 100
+        laserDeviation = 10
 
         weight = (1/(math.sqrt(2*math.pi)*laserDeviation)) * \
             math.exp(-(particleDifference_aux**2)/(2*laserDeviation**2))
@@ -239,7 +254,6 @@ class particleFilter():
     def laserSample(self):
 
         num_LaserBeams = len(self.ranges)
-        self.desired_LaserBeams = 16
         anglesCovered = np.array([])
         self.anglesSampled = np.array([])
         jump = num_LaserBeams/self.desired_LaserBeams
@@ -271,9 +285,8 @@ class particleFilter():
             y_mov + noise_y
         self.particles[i, 2] += self.yaw + noise_yaw
 
-    def measurePrediction(self, particlePosition):
-
-        self.predictedRanges = np.array([])
+    def measurePrediction(self, particlePosition, index, queue):
+        predictedRanges = np.array([])
         currentAngle = self.callbacks.angle_min
         particleOrientation = tf.transformations.quaternion_from_euler(
             0, 0, particlePosition[2])
@@ -302,8 +315,9 @@ class particleFilter():
             elif (currentRange < self.callbacks.range_min):
                 currentRange = self.callbacks.range_min
 
-            self.predictedRanges = np.append(
-                self.predictedRanges, currentRange)
+            predictedRanges = np.append(
+                predictedRanges, currentRange)
+        queue.put((index, predictedRanges))
 
     def getMap(self):
 
@@ -333,41 +347,59 @@ class particleFilter():
 
         return
 
-    def initializeNewParticle(self, i):
+    def initializeNewParticle(self, bad_particles, good_particles):
 
-        # https://thispointer.com/find-the-index-of-a-value-in-numpy-array/
-        freeSpace = np.where(self.map == 1)
+        if(len(good_particles) >= 1):
+            j = 0
+            for i in bad_particles:
+                noise_x = np.random.normal(
+                    loc=0, scale=0.1)
+                noise_y = np.random.normal(
+                    loc=0, scale=0.1)
+                noise_yaw = np.random.normal(
+                    loc=0, scale=0.05)
+                self.particles[i, 0] = self.particles[j, 0] + noise_x
+                self.particles[i, 1] = self.particles[j, 1] + noise_y
+                self.particles[i, 2] = self.particles[j, 2] + noise_yaw
+                j += 1
+                if(len(good_particles) == j):
+                    j = 0
+            return
 
-        # https://numpy.org/doc/stable/reference/random/generated/numpy.random.randint.html
-        position = np.random.randint(
-            0, len(freeSpace[0]), size=1)
+        for i in bad_particles:
+            # https://thispointer.com/find-the-index-of-a-value-in-numpy-array/
+            freeSpace = np.where(self.map == 1)
 
-        self.particles[i, 0] = freeSpace[1][position]
-        self.particles[i, 1] = freeSpace[0][position]
+            # https://numpy.org/doc/stable/reference/random/generated/numpy.random.randint.html
+            position = np.random.randint(
+                0, len(freeSpace[0]), size=1)
 
-        # https://numpy.org/doc/stable/reference/random/generated/numpy.random.random_sample.html
-        # Convert angle to a number between 0 and 2*Pi
-        self.particles[i, 2] = np.random.random_sample(1) * math.pi * 2.0
+            self.particles[i, 0] = freeSpace[1][position]
+            self.particles[i, 1] = freeSpace[0][position]
 
-        roll, pitch, yaw = tf.transformations.euler_from_quaternion(
-            (self.mapInfo.origin.orientation.x,
-             self.mapInfo.origin.orientation.y,
-             self.mapInfo.origin.orientation.z,
-             self.mapInfo.origin.orientation.w))
-        # Theta = yaw
-        cos = math.cos(yaw)
-        sin = math.sin(yaw)
+            # https://numpy.org/doc/stable/reference/random/generated/numpy.random.random_sample.html
+            # Convert angle to a number between 0 and 2*Pi
+            self.particles[i, 2] = np.random.random_sample(1) * math.pi * 2.0
 
-        # Store x values temporarily since it will be changed
-        tempX = np.copy(self.particles[i, 0])
-        self.particles[i, 0] = (cos*self.particles[i, 0] -
-                                sin*self.particles[i, 1]) * \
-            float(self.mapInfo.resolution) + self.mapInfo.origin.position.x
+            roll, pitch, yaw = tf.transformations.euler_from_quaternion(
+                (self.mapInfo.origin.orientation.x,
+                 self.mapInfo.origin.orientation.y,
+                 self.mapInfo.origin.orientation.z,
+                 self.mapInfo.origin.orientation.w))
+            # Theta = yaw
+            cos = math.cos(yaw)
+            sin = math.sin(yaw)
 
-        self.particles[i, 1] = (sin*tempX + cos*self.particles[i, 1]) * \
-            float(self.mapInfo.resolution) + self.mapInfo.origin.position.y
+            # Store x values temporarily since it will be changed
+            tempX = np.copy(self.particles[i, 0])
+            self.particles[i, 0] = (cos*self.particles[i, 0] -
+                                    sin*self.particles[i, 1]) * \
+                float(self.mapInfo.resolution) + self.mapInfo.origin.position.x
 
-        self.particles[i, 2] += yaw
+            self.particles[i, 1] = (sin*tempX + cos*self.particles[i, 1]) * \
+                float(self.mapInfo.resolution) + self.mapInfo.origin.position.y
+
+            self.particles[i, 2] += yaw
 
     def initializeParticles(self):
 
