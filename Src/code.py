@@ -1,3 +1,5 @@
+#!/usr/bin/python
+
 # Libraries
 from nav_msgs.srv import GetMap
 import rospy
@@ -673,7 +675,7 @@ class particleFilter():
 
 
 if __name__ == "__main__":
-    rospy.init_node("MCLocalization")
+    rospy.init_node("mclocalization")
     if(len(argv) >= 1):
         numParticles = int(argv[1])
     else:
