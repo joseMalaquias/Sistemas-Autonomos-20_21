@@ -148,9 +148,10 @@ class particle():
 
 class particleFilter():
 
-    def __init__(self, NUMBER_OF_PARTICLES):
+    def __init__(self, NUMBER_OF_PARTICLES, RATE):
 
         self.numParticles = NUMBER_OF_PARTICLES
+        self.rate = RATE
         self.mutex = threading.Lock()
 
         # https://stackoverflow.com/questions/4877624/numpy-array-of-objects
@@ -189,7 +190,7 @@ class particleFilter():
             "/mclocalization/particleCloud", PoseArray, queue_size=10)
 
         # Rate
-        rate = rospy.Rate(1)  # Hz
+        rate = rospy.Rate(self.rate)  # Hz
         # Used to retrieve information from multiprocessing
         queue = Queue()
 
@@ -676,10 +677,15 @@ class particleFilter():
 
 if __name__ == "__main__":
     rospy.init_node("mclocalization")
-    if(len(argv) >= 1):
-        numParticles = int(argv[1])
-    else:
+    if(len(argv) == 1):
         numParticles = 100
+        rate = 1
+    elif(len(argv) == 1):
+        numParticles = int(argv[1])
+        rate = 1
+    else:
+        numParticles = int(argv[1])
+        rate = int(argv[2])
 
-    pf = particleFilter(numParticles)
+    pf = particleFilter(numParticles, rate)
     rospy.spin()
