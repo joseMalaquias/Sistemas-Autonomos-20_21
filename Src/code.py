@@ -680,7 +680,7 @@ if __name__ == "__main__":
     if(len(argv) == 1):
         numParticles = 100
         rate = 1
-    elif(len(argv) == 1):
+    elif(len(argv) == 2):
         numParticles = int(argv[1])
         rate = 1
     else:
