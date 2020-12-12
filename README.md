@@ -33,7 +33,7 @@ On the third terminal:
 ```
 rosrun teleop_twist_keyboard teleop_twist_keyboard.py cmd_vel:=/cmd_vel
 ```
-On the fourth terminal,  in ```<user>```, substitute by your user and in ```<map_name>``` substitute by playpen OR fastfood, and run:
+On the fourth terminal,  in ```<user>```, substitute by your user and in ```<map_name>``` substitute by ```playpen``` OR ```fastfood```, and run:
 ```
 rosrun map_server map_server /home/<user>/catkin_ws/src/mclocalization/Maps/<map_name>.yaml
 ```
