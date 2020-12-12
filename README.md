@@ -25,7 +25,7 @@ Having your package built, open several terminal windows and run:
 ```
 roscore
 ```
-On the second terminal, in <user> , substitute by your user and in <map_name> substitute by playpen OR fastfood, and run:
+On the second terminal, in <user> teste, substitute by your user and in <map_name> substitute by playpen OR fastfood, and run:
 ```
 roslaunch husky_gazebo husky_empty_world.launch world_name:=/home/<user>/catkin_ws/src/mclocalization/Maps/<map_name>.world
 ```
