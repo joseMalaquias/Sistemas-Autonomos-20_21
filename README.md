@@ -1,7 +1,7 @@
 # Monte Carlo Localization - Terrain Environment (Husky)
 This github contemplates the implementation Monte Carlo Localization using a particle filter.
 
-## Prerquisites
+## Prerequisites
 - Ubuntu 16.04 - https://ubuntu.com/tutorials/install-ubuntu-desktop-1604#1-overview
 - ROS Kinetic - http://wiki.ros.org/kinetic/Installation/Ubuntu
 - Familiarize yourself with the Catkin tools.
