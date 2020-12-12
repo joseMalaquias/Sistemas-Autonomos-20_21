@@ -430,21 +430,25 @@ class particleFilter():
         chance of being the robot's position. In case of not existing
         any good particles, simply relocates them randomly
         """
-        good_particles, bad_particles, very_good_particles = [], [], []
+        good_particles, bad_particles = [], []
+        localized = -1
+        bestParticlerange = np.linalg.norm([100]*self.desired_LaserBeams)
         for i in range(self.numParticles):
             if self.particleDifference[i] <= \
                     np.linalg.norm([3]*self.desired_LaserBeams):
                 good_particles.append(i)
-                if self.particleDifference[i] <= \
-                        np.linalg.norm([1]*self.desired_LaserBeams):
-                    very_good_particles.append(i)
+                if (self.particleDifference[i] <=
+                        np.linalg.norm([1]*self.desired_LaserBeams)
+                        and bestParticlerange > self.particleDifference[i]):
+                    localized = i
+                    bestParticlerange = self.particleDifference[i]
             elif self.particleDifference[i] >= \
                     np.linalg.norm([6]*self.desired_LaserBeams):
                 bad_particles.append(i)
-        if(len(very_good_particles) >= 1):
+        if(localized != -1):
             print("Husky localized!\n")
         self.initializeNewParticle(
-            bad_particles, good_particles, very_good_particles)
+            bad_particles, good_particles, localized)
 
     def getMap(self):
         """
@@ -479,36 +483,31 @@ class particleFilter():
         return
 
     def initializeNewParticle(self, bad_particles, good_particles,
-                              very_good_particles):
+                              robot_particle):
         """
         Initializes new particles depending on the existance of
         very good, good and bad particles
         """
 
-        # If very good particles exist, all the remaining particles
-        # will be relocated to a location close to the very good
-        # particles
-        if(len(very_good_particles) >= 1):
-            j = 0
+        # If robot_particle exists (different from -1), all the remaining
+        # particles will be relocated to a location close to the robot_particle
+        if(robot_particle != -1):
             for i in range(self.numParticles):
-                if i not in very_good_particles:
-                    noise_x = np.random.normal(
-                        loc=0, scale=0.3)
-                    noise_y = np.random.normal(
-                        loc=0, scale=0.3)
-                    noise_yaw = np.random.normal(
-                        loc=0, scale=0.1)
-                    self.particles[i, 0] = self.particles[
-                        very_good_particles[j], 0] + noise_x
-                    self.particles[i, 1] = self.particles[
-                        very_good_particles[j], 1] + noise_y
-                    self.particles[i, 2] = self.particles[
-                        very_good_particles[j], 2] + noise_yaw
-                    if(len(good_particles) == j):
-                        j = 0
+                noise_x = np.random.normal(
+                    loc=0, scale=0.3)
+                noise_y = np.random.normal(
+                    loc=0, scale=0.3)
+                noise_yaw = np.random.normal(
+                    loc=0, scale=0.1)
+                self.particles[i, 0] = self.particles[
+                    robot_particle, 0] + noise_x
+                self.particles[i, 1] = self.particles[
+                    robot_particle, 1] + noise_y
+                self.particles[i, 2] = self.particles[
+                    robot_particle, 2] + noise_yaw
             return
 
-        # If good particles exist and there is no very good particle,
+        # If good particles exist and there is no robot_particle,
         # all the bad particles will be relocated to a location close
         # to the good particles
         if(len(good_particles) >= 1):
@@ -531,8 +530,8 @@ class particleFilter():
                     j = 0
             return
 
-        # If there is no very good or good particles, the bad particles will be
-        # relocated to a random position on the map
+        # If there is no robot_particle or good particles, the bad particles
+        # will be relocated to a random position on the map
         for i in bad_particles:
             # https://thispointer.com/find-the-index-of-a-value-in-numpy-array/
             freeSpace = np.where(self.map == 1)
