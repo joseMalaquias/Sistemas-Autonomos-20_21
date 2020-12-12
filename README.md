@@ -4,14 +4,16 @@ This github contemplates the implementation Monte Carlo Localization using a par
 #Prerquisites
 - Ubuntu 16.04 - https://ubuntu.com/tutorials/install-ubuntu-desktop-1604#1-overview
 - ROS Kinetic - http://wiki.ros.org/kinetic/Installation/Ubuntu
+- Familiarize yourself with the Catkin tools.
 
 #Steps to run the code
-- Download this repository
-- Insert it in your catkin_ws/src
+- Download this repository and extract it.
+- Insert it in your catkin_ws/src.
 - Insert the following commands:
 ```
 roscd
 catkin build
+sudo apt-get install ros-kinetic-teleop-twist-keyboard
 ```
 
 Having your package built, open several terminal windows and run:
@@ -19,7 +21,7 @@ Having your package built, open several terminal windows and run:
 ```
 roscore
 ```
-On the second terminal, introduce your user and one map name (playpen OR fastfood), and run:
+On the second terminal, in <user>, substitute by your user and in <map_name> substitute by playpen OR fastfood, and run:
 ```
 roslaunch husky_gazebo husky_empty_world.launch world_name:=/home/<user>/catkin_ws/src/mclocalization/Maps/<map_name>.world
 ```
@@ -27,9 +29,9 @@ On the third terminal:
 ```
 rosrun teleop_twist_keyboard teleop_twist_keyboard.py cmd_vel:=/cmd_vel
 ```
-On the fourth terminal. introduce your user and one map name (playpen OR fastfood), and run:
+On the fourth terminal,  in <user>, substitute by your user and in <map_name> substitute by playpen OR fastfood, and run:
 ```
-rosrun map_server map_server /home/<user/catkin_ws/src/mclocalization/Maps/<map_name>.yaml
+rosrun map_server map_server /home/<user>/catkin_ws/src/mclocalization/Maps/<map_name>.yaml
 ```
 On the fifth terminal:
 ```
@@ -39,11 +41,19 @@ On the sixth terminal:
 ```
 rosrun rviz rviz 
 ```
-On the seventh terminal, with a defined number of particles and rate:
+On the seventh terminal, in <number_of_particules>, substitute by a number(ex: 50, 75, 100, 150, 200, ...) and in <rate> substitute by a rate in Hz (0.5, 1, 2, ...). For the average teste in Playpen, we reccomend 100 particales with a rate of 1 Hz (do not use numbers of particules much higher than the ones states as it requires a lot of resources from your computer):
 ```
-rosrun mclocalization mcl.py <number of particles> <rate>
+rosrun mclocalization mcl.py <number_of_particles> <rate>
 ```
 
-Open rviz, select add (bottom left), and add the Map and PoseArray topics.
+Open rviz, select option "Add" (bottom left), and add the Map and PoseArray topics. If desired, the LaserScan topic can be added too.
+In order to move the husky, select the third terminal and follow the instructions.
+When the Husky gets localized, a message on the seventh terminal will pop up saying "Husky Localized!"
+
+
+In order to check the results, we reccomend checking the Particles positions in Rviz and the Husky position in the Gazebo program and comparing with each other.
+
+If you want to see the robot location directly in Rviz, a topic of the Husky "true" location may be added by adding the topic "InteractiveMarkers", however, sometimes this suffers a deviation, and doesn't represent its true position, so we don't recommend it.
+
 
 Enjoy!
