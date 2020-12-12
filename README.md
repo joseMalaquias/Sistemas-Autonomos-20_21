@@ -1,7 +1,8 @@
 # Monte Carlo Localization - Terrain Environment (Husky)
 This github contemplates the implementation Monte Carlo Localization using a particle filter.
 
-![](ezgif.com-video-to-gif)
+
+![ezgif com-video-to-gif](https://user-images.githubusercontent.com/74827101/101970614-50ad7900-3c23-11eb-80f7-70c2bae2ef1e.gif)
 
 
 ## Prerequisites
