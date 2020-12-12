@@ -1,5 +1,5 @@
 # Monte Carlo Localization - Terrain Environment (Husky)
-This github contemplates the implementation Monte Carlo Localization using a particle filter.
+This github contemplates the implementation of Monte Carlo Localization using a particle filter.
 
 
 ![ezgif com-video-to-gif](https://user-images.githubusercontent.com/74827101/101970614-50ad7900-3c23-11eb-80f7-70c2bae2ef1e.gif)
@@ -45,13 +45,13 @@ On the sixth terminal:
 ```
 rosrun rviz rviz 
 ```
-On the seventh terminal, in <number_of_particules>, substitute by a number(ex: 50, 75, 100, 150, 200, ...) and in <rate> substitute by a rate in Hz (0.5, 1, 2, ...). For the average teste in Playpen, we reccomend 100 particales with a rate of 1 Hz (do not use numbers of particules much higher than the ones states as it requires a lot of resources from your computer):
+On the seventh terminal, in <number_of_particules>, substitute by a number (ex: 50, 75, 100, 150, 200, ...) and in <rate> substitute by a rate in Hz (0.5, 1, 2, ...). For the average teste in Playpen, we reccomend 100 particales with a rate of 1 Hz (do not use numbers of particules much higher than the ones stated as it requires a lot of resources from your computer):
 ```
 rosrun mclocalization mcl.py <number_of_particles> <rate>
 ```
 
 Open rviz, select option "Add" (bottom left), and add the Map and PoseArray topics. If desired, the LaserScan topic can be added too.
-In order to move the husky, select the third terminal and follow the instructions.
+In order to move the husky, select the third terminal and follow the instructions on the terminal window.
 When the Husky gets localized, a message on the seventh terminal will pop up saying "Husky Localized!"
 
 
