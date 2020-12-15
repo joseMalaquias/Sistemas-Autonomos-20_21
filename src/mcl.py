@@ -19,7 +19,9 @@ from threading import Thread
 
 import time
 
-NUM_ITERS = 10
+from scipy import ndimage
+
+NUM_ITERS = 25 # DEFAULT - Tested as being the best value for 500 particles
 
 
 # ROS messages
@@ -170,6 +172,7 @@ class particleFilter():
         # X, Y, Theta and Weight
 	# Particle's pose separated from particle's weight for performance (in the multiprocessing)
         self.particlesPose = np.zeros((self.numParticles, 3))
+	self.particlesInGrid = np.zeros((self.numParticles, 3))
         # In the beginning, all particles have the same weight
         self.particlesWeight = np.full((self.numParticles), 1.0 / self.numParticles)
 
@@ -180,10 +183,19 @@ class particleFilter():
             shape=(self.numParticles, self.desired_LaserBeams))
 
         self.map = None
+	self.obstacleDistanceMap = None
+	self.predictedRangesTest = np.zeros(shape=(self.numParticles, self.desired_LaserBeams))
+	self.predictedRangesOtherWay = np.zeros(shape=(self.numParticles, self.desired_LaserBeams))
         self.mapInfo = None
 
         # Stores the Map information
         self.getMap()
+	# Precompute data
+	# Creates the map with the euclidean distance from a cell to the closest obstacle
+	self.getObstacleDistanceMap()
+	
+	#print(self.map)
+	#print(self.obstacleDistanceMap)
         # Initialize the particles
         self.initializeParticles()
         # Initialize the ROS subscriptions from the particles() class
@@ -232,12 +244,14 @@ class particleFilter():
                 # Calculates the predicted ranges to each particle using
                 # multiprocessing
 
-		startPredictedRange = time.time()
        		
 		# Used to retrieve information from multiprocessing
         	queue = Queue()
 		queue_aux = []
+		queue_aux1 = []
 		processes = []
+
+		startPredictedRange = time.time()
 
 		startCreateProcess = time.time()
                 for i in range(0, self.numParticles, NUM_ITERS):
@@ -259,6 +273,21 @@ class particleFilter():
 
 		endPredictedRange = time.time()
 
+		processes = []
+		startTestRange = time.time()
+		self.particlesInGrid[:, 0], self.particlesInGrid[:,1] = self.convertToGridArray(self.particlesPose[:,0], self.particlesPose[:,1])
+		self.particlesInGrid[:, 2] = self.particlesPose[:,2]
+                for i in range(0, self.numParticles, NUM_ITERS):
+                    p = Process(target=self.testRange, args=(self.particlesInGrid[i:i + NUM_ITERS], i, queue))
+                    processes.append(p)
+		    p.start()
+                # Retrieves each particle predicted ranges from
+                # the processes
+		for i in range(self.numParticles):
+		    queue_aux1.append(queue.get())
+		for p in processes:
+		    p.join()
+		endTestRange = time.time()
 
                 # Reorganizes the values returned from the
                 # multiprocesses queues
@@ -267,8 +296,25 @@ class particleFilter():
 
                 for i in range(self.numParticles):
                     self.predictedRanges[queue_aux[i][0]] = queue_aux[i][1]
+		    self.predictedRangesTest[queue_aux1[i][0]] = queue_aux1[i][1]
 
 		endReorganization = time.time()
+		
+		#print("Comeco o teste do laser")
+		#print(self.predictedRanges)
+		#print("Teste")
+
+		#startTestRange = time.time()
+		#for i in range(0, self.numParticles):
+		    #a,b = self.testRange(self.particlesPose[i])
+		 #   a = self.testRange(self.particlesPose[i])
+		  #  self.predictedRangesTest[i] = a
+	            #self.predictedRangesOtherWay[i] = b
+		
+		#endTestRange = time.time()
+		#print(self.predictedRangesTest)
+		#print(self.predictedRangesOtherWay)
+		#print("Fim do teste do laser")
 
                 # Calculates the difference between the robot true ranges and
                 # the particle predicted ranges
@@ -322,6 +368,7 @@ class particleFilter():
 		print("Get Answer: %f" % (endGrabAnswer - startGrabAnswer))
 		print("Join Processes: %f" % (endJoinProcess - startJoinProcess))
 		print("Reorganization: %f" % (endReorganization - startReorganization))
+		print("Test Range: %f" % (endTestRange - startTestRange))
 		print("Deviation: %f" % (endDeviation - startDeviation))
 		print("Weight: %f" % (endWeight - startWeight))
 		print("Resampling: %f" % (endResampling - startResampling))
@@ -563,14 +610,73 @@ class particleFilter():
 
         # 0: obstacle 1: free
         self.map = np.zeros(
-            (self.mapInfo.height, self.mapInfo.width), dtype=bool)
+            (self.mapInfo.height, self.mapInfo.width), dtype=np.bool)
 
         # https://stackoverflow.com/questions/19766757/replacing-numpy-elements-if-condition-is-met
         self.map[map == 0] = 1
 
-        print("Map created\n")
+        print("Map created.\n")
 
         return
+
+    def getObstacleDistanceMap(self):
+
+        print("Getting euclidean distance among positions and closest obstacles...\n")
+	
+	# https://docs.scipy.org/doc/scipy-0.14.0/reference/generated/scipy.ndimage.morphology.distance_transform_edt.html
+	
+	self.obstacleDistanceMap = ndimage.distance_transform_edt(self.map)
+
+        print("Euclidean distance transform map created.\n")
+
+        return
+
+    # step along the (x,y,theta) ray until colliding with an obstacle
+    def testRange(self, particlePosition, index, queue):
+
+	range_min = self.callbacks.range_min / self.mapInfo.resolution
+	range_max = self.callbacks.range_max / self.mapInfo.resolution
+
+        for i in range(NUM_ITERS):
+            predictedRanges = np.array([])
+	    #predictedRangesOther = np.array([])
+            currentAngle = self.callbacks.angle_min
+            particleOrientation = tf.transformations.quaternion_from_euler(0, 0, particlePosition[i][2])
+	    # Ranges will be calculated for each angle
+            for currentAngle in self.anglesSampled:
+	        laserOrientation = tf.transformations.quaternion_from_euler(0, 0, currentAngle)
+		_, _, laserRotation = tf.transformations.euler_from_quaternion(tf.transformations.quaternion_multiply(particleOrientation, laserOrientation))
+
+	        #currentRange = self.callbacks.range_min
+		currentRange = range_min
+	        coeff = 0.99
+	        while(currentRange <= range_max):
+	            x_laser = currentRange * math.cos(laserRotation)
+	            y_laser = currentRange * math.sin(laserRotation)
+	            x_predicted = particlePosition[i][0] + x_laser
+                    y_predicted = particlePosition[i][1] + y_laser
+		    #x_predicted_grid, y_predicted_grid = self.convertToGrid(
+                    #x_predicted, y_predicted)
+	            #dist = self.obstacleDistanceMap[y_predicted_grid, x_predicted_grid]
+                    dist = self.obstacleDistanceMap[int(y_predicted), int(x_predicted)]
+	            if dist == 0.0:
+		        break
+	            #currentRange += max(dist*coeff*self.mapInfo.resolution, self.mapInfo.resolution)
+		    currentRange += max(dist*coeff, 1.0)
+
+        	currentRange *= self.mapInfo.resolution
+	        if(currentRange > range_max):
+                    currentRange = range_max
+                elif (currentRange < range_min):
+                    currentRange = range_min
+	        
+	        predictedRanges = np.append(predictedRanges, self.roundToMapResolution(currentRange))
+	
+	        #currentRange = math.sqrt((particlePosition[0] - x_predicted)**2 + (particlePosition[1] - y_predicted)**2)
+	        #print(currentRange)
+	        #predictedRangesOther = np.append(predictedRangesOther, currentRange)
+            queue.put((index+i, predictedRanges))
+	#return predictedRanges#, predictedRangesOther
 
     def initializeNewParticle(self, bad_particles, good_particles,
                               robot_particle):
@@ -657,6 +763,11 @@ class particleFilter():
 
             self.particlesPose[i, 2] += yaw
 
+    # https://stackoverflow.com/questions/8118982/rounding-numbers-to-a-specific-resolution
+    def roundToMapResolution (self, value):
+	# ATTENTION: Can have a small round error - test range compared with real range
+    	return round(value / self.mapInfo.resolution) * self.mapInfo.resolution
+
     def initializeParticles(self):
         """
         Initial inicialization of particles
@@ -724,6 +835,18 @@ class particleFilter():
                      self.mapInfo.resolution)
         y_grid = int((y - self.mapInfo.origin.position.y) /
                      self.mapInfo.resolution)
+        return x_grid, y_grid
+
+    def convertToGridArray(self, x, y):
+        """
+        Converts an array from real world coordinates to Grid Map coordinates
+        """
+        x_grid = (x - self.mapInfo.origin.position.x) / self.mapInfo.resolution
+        y_grid = (y - self.mapInfo.origin.position.y) / self.mapInfo.resolution
+
+	#x_grid.astype(int)
+	#y_grid.astype(int)
+
         return x_grid, y_grid
 
     def publishParticles(self):
