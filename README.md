@@ -76,19 +76,19 @@ Enjoy!
 
 ## Guide to fixing errors
 
-- If you have built your catkin previously with catkin_make, you need to run the command:
-```catkin clean -y```
-And then run:
-```catkin build```
+- If you have built your catkin previously with catkin_make, you need to run the command:<br/>
+```catkin clean -y```<br/>
+And then run:<br/>
+```catkin build```<br/>
 
 
-- If you are getting an error saying that the mclocalization package was not found, check if you executed the commands presented in the beggining of this guide. If you did, replace ```<user>``` with your machine user and run:
-```source /home/<user>/catkin_ws/devel/setup.bash```
+- If you are getting an error saying that the mclocalization package was not found, check if you executed the commands presented in the beggining of this guide. If you did, replace ```<user>``` with your machine user and run:<br/>
+```source /home/<user>/catkin_ws/devel/setup.bash```<br/>
 
 
-- If you are still getting the same error, replace ```<user>``` with your machine user and run the following commands:
-```cd /home/<user>/catkin_ws/src/mclocalization/src```
-```chmod +x mcl.py```
+- If you are still getting the same error, replace ```<user>``` with your machine user and run the following commands:<br/>
+```cd /home/<user>/catkin_ws/src/mclocalization/src```<br/>
+```chmod +x mcl.py```<br/>
 
-In ```<number_of_particules>```, substitute by a number (ex: 100, 200, 500, 1000, 2000, ...) and in ```<rate>``` substitute by a rate in Hz (0.5, 1, 2, ...).  Run the following command:
+In ```<number_of_particules>```, substitute by a number (ex: 100, 200, 500, 1000, 2000, ...) and in ```<rate>``` substitute by a rate in Hz (0.5, 1, 2, ...).  Run the following command:<br/>
 ```python mcl.py <number_of_particules> <rate>```
