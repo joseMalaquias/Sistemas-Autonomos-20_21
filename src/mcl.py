@@ -15,11 +15,10 @@ import std_msgs.msg
 import threading
 from multiprocessing import Queue, Process
 
-import time
-
 from scipy import ndimage
 
-NUM_ITERS = 25  # DEFAULT - Tested as being the best value for 500 particles
+NUM_ITERS = 25  # DEFAULT - Tested as being the best value for
+# 500/1000 particles
 
 
 # ROS messages
@@ -200,8 +199,6 @@ class particleFilter():
         # to the closest obstacle
         self.getObstacleDistanceMap()
 
-        # print(self.map)
-        # print(self.obstacleDistanceMap)
         # Initialize the particles
         self.initializeParticles()
         # Initialize the ROS subscriptions from the particles() class
@@ -219,7 +216,6 @@ class particleFilter():
 
         # Rate
         rate = rospy.Rate(self.rate)  # Hz
-        printed = 0
 
         while not rospy.is_shutdown():
             # Retrieves the information from the subscriptions/callbacks and
@@ -230,6 +226,10 @@ class particleFilter():
             self.laserSample()
             self.particleWeight = np.array([])
             self.particleDifference = np.array([])
+
+            # If the number of total particles is not a multiple
+            # of NUM_ITERS, dedicate one process to a dedicated
+            # number of particles
             if(self.numParticles % NUM_ITERS != 0):
                 numParticles_aux = self.numParticles
                 while True:
@@ -242,14 +242,12 @@ class particleFilter():
             else:
                 GENERAL_NUM_ITERS = NUM_ITERS
                 ONE_TIME_NUM_ITERS = NUM_ITERS
-                # print(GENERAL_NUM_ITERS, ONE_TIME_NUM_ITERS)
+
             # Only updates if there is any movement
             # This is due to the fact that the Odometry Topic always retrieves
             # minimal movement that is insignificant/negligible
             if(self.v >= 0.001 or abs(self.yaw) >= 0.001):
                 # Updates all particles movement
-
-                startMovement = time.time()
 
                 for i in range(self.numParticles):
                     if self.v < 0.001:
@@ -261,7 +259,6 @@ class particleFilter():
                             self.yaw = -0.001
                     self.movementPrediction(i)
 
-                endMovement = time.time()
                 # Calculates the predicted ranges to each particle using
                 # multiprocessing
 
@@ -269,19 +266,20 @@ class particleFilter():
                 queue = Queue()
                 queue_aux = []
                 processes = []
-                processes = []
-                startTestRange = time.time()
                 self.particlesInGrid[:, 0], self.particlesInGrid[:, 1] = \
                     self.convertToGridArray(
                     self.particlesPose[:, 0], self.particlesPose[:, 1])
                 self.particlesInGrid[:, 2] = self.particlesPose[:, 2]
-                p = Process(target=self.testRange, args=(
-                    self.particlesInGrid[0: ONE_TIME_NUM_ITERS], 0, queue, ONE_TIME_NUM_ITERS))
+                p = Process(target=self.predictRanges, args=(
+                    self.particlesInGrid[0: ONE_TIME_NUM_ITERS], 0, queue,
+                    ONE_TIME_NUM_ITERS))
                 processes.append(p)
                 p.start()
-                for i in range(ONE_TIME_NUM_ITERS, self.numParticles, GENERAL_NUM_ITERS):
-                    p = Process(target=self.testRange, args=(
-                        self.particlesInGrid[i:i + GENERAL_NUM_ITERS], i, queue, GENERAL_NUM_ITERS))
+                for i in range(ONE_TIME_NUM_ITERS, self.numParticles,
+                               GENERAL_NUM_ITERS):
+                    p = Process(target=self.predictRanges, args=(
+                        self.particlesInGrid[i:i + GENERAL_NUM_ITERS], i,
+                        queue, GENERAL_NUM_ITERS))
                     processes.append(p)
                     p.start()
                 # Retrieves each particle predicted ranges from
@@ -290,77 +288,39 @@ class particleFilter():
                     queue_aux.append(queue.get())
                 for p in processes:
                     p.join()
-                endTestRange = time.time()
 
                 # Reorganizes the values returned from the
                 # multiprocesses queues
-
-                startReorganization = time.time()
 
                 for i in range(self.numParticles):
                     self.predictedRanges[queue_aux[i]
                                          [0]] = queue_aux[i][1]
 
-                endReorganization = time.time()
-
                 # Calculates the difference between the robot true ranges and
                 # the particle predicted ranges
-
-                startDeviation = time.time()
 
                 for i in range(self.numParticles):
                     self.measurePredictionDeviation(self.particlesPose[i], i)
 
-                endDeviation = time.time()
-
                 # Calculates the weights
-
-                startWeight = time.time()
 
                 self.weightCalculation()
 
-                endWeight = time.time()
-
                 # Resamples the particles
-
-                startResampling = time.time()
 
                 if self.neff < (2*self.numParticles)/3:
                     self.resampling()
 
-                endResampling = time.time()
+                # Handles the case of particle Deprivation/Kidnapping problem
 
-                # Handles the case of particle Deprivation
-
-                startDeprivation = time.time()
-
-                # if self.v >= 0.1:
                 self.particleDeprivation()
-
-                endDeprivation = time.time()
 
             # Publishes the particles
 
-            startPublishing = time.time()
-
             self.publishParticles()
 
-            endPublishing = time.time()
-
             print("Publishing...\n")
-            """
-            if((printed < 5) and (self.v >= 0.001 or abs(self.yaw) >= 0.001)):
-                print("Movement: %f" % (endMovement - startMovement))
-                print("Reorganization: %f" %
-                      (endReorganization - startReorganization))
-                print("Test Range: %f" % (endTestRange - startTestRange))
-                print("Deviation: %f" % (endDeviation - startDeviation))
-                print("Weight: %f" % (endWeight - startWeight))
-                print("Resampling: %f" % (endResampling - startResampling))
-                print("Deprivation: %f" % (endDeprivation - startDeprivation))
-                print("Publishing: %f" % (endPublishing - startPublishing))
-                printed = printed + 1
-            """
+
             rate.sleep()
 
     def newMovement(self):
@@ -562,18 +522,16 @@ class particleFilter():
         return
 
     # step along the (x,y,theta) ray until colliding with an obstacle
-    def testRange(self, particlePosition, index, queue, NUM_ITERATIONS):
+    def predictRanges(self, particlePosition, index, queue, NUM_ITERATIONS):
 
         range_min = self.callbacks.range_min / self.mapInfo.resolution
         range_max = self.callbacks.range_max / self.mapInfo.resolution
 
         for i in range(NUM_ITERATIONS):
             predictedRanges = np.array([])
-            # predictedRangesOther = np.array([])
             currentAngle = self.callbacks.angle_min
             particleOrientation = tf.transformations.quaternion_from_euler(
                 0, 0, particlePosition[i][2])
-            # Ranges will be calculated for each angle
             for currentAngle in self.anglesSampled:
                 laserOrientation = tf.transformations.quaternion_from_euler(
                     0, 0, currentAngle)
@@ -607,8 +565,8 @@ class particleFilter():
 
     def initializeNewParticle(self, particles_to_replace):
         """
-        Initializes new particles depending on the existance of
-        very good, good and bad particles
+        In case of the position estimation being way off track or
+        existing a kidnapping situation
         """
         freeSpace = np.where(self.map == 1)
         for i in particles_to_replace:
