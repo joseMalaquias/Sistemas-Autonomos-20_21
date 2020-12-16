@@ -160,6 +160,12 @@ class particleFilter():
         self.rate = RATE
         self.mutex = threading.Lock()
 
+        self.w_avg = 0.0
+        self.w_slow = 0.0
+        self.w_fast = 0.0
+        self.alpha_slow = 0.4
+        self.alpha_fast = 0.7
+
         # https://stackoverflow.com/questions/4877624/numpy-array-of-objects
         # There is no advantage in running a numpy array of
         # objects over iterating all the objects
@@ -328,9 +334,8 @@ class particleFilter():
 
                 startDeprivation = time.time()
 
-                if self.v >= 0.1:
-                    pass
-                    # self.particleDeprivation()
+                # if self.v >= 0.1:
+                self.particleDeprivation()
 
                 endDeprivation = time.time()
 
@@ -343,7 +348,7 @@ class particleFilter():
             endPublishing = time.time()
 
             print("Publishing...\n")
-
+            """
             if((printed < 5) and (self.v >= 0.001 or abs(self.yaw) >= 0.001)):
                 print("Movement: %f" % (endMovement - startMovement))
                 print("Reorganization: %f" %
@@ -355,7 +360,7 @@ class particleFilter():
                 print("Deprivation: %f" % (endDeprivation - startDeprivation))
                 print("Publishing: %f" % (endPublishing - startPublishing))
                 printed = printed + 1
-
+            """
             rate.sleep()
 
     def newMovement(self):
@@ -468,10 +473,14 @@ class particleFilter():
         totalSum = sum(self.particleWeight)
         self.neff = 0.0
         weights_squared = 0.0
+        weights_sum = 0.0
         for i in range(self.numParticles):
             self.particlesWeight[i] = self.particleWeight[i] / totalSum
+            weights_sum += self.particleWeight[i]/self.numParticles
             weights_squared += self.particlesWeight[i]**2
         self.neff = 1/(weights_squared)
+        # print(weights_sum)
+        self.w_avg = weights_sum
 
     def resampling(self):
         """
@@ -497,31 +506,16 @@ class particleFilter():
         self.particlesWeight = new_particlesWeight
 
     def particleDeprivation(self):
-        """
-        Removes particles that have an error too high to be admissable
-        particles and relocates them near particles that have a high
-        chance of being the robot's position. In case of not existing
-        any good particles, simply relocates them randomly
-        """
-        good_particles, bad_particles = [], []
-        localized = -1
-        bestParticlerange = np.linalg.norm([100]*self.desired_LaserBeams)
-        for i in range(self.numParticles):
-            if self.particleDifference[i] <= \
-                    np.linalg.norm([3]*self.desired_LaserBeams):
-                good_particles.append(i)
-                if (self.particleDifference[i] <=
-                        np.linalg.norm([1]*self.desired_LaserBeams)
-                        and bestParticlerange > self.particleDifference[i]):
-                    localized = i
-                    bestParticlerange = self.particleDifference[i]
-            elif self.particleDifference[i] >= \
-                    np.linalg.norm([6]*self.desired_LaserBeams):
-                bad_particles.append(i)
-        if(localized != -1):
-            print("Husky localized!\n")
-        self.initializeNewParticle(
-            bad_particles, good_particles, localized)
+        self.w_slow += self.alpha_slow * (self.w_avg - self.w_slow)
+        self.w_fast += self.alpha_fast * (self.w_avg - self.w_fast)
+        self.deprivation_prob = max(0, 1.0 - self.w_fast / self.w_slow)
+        particles_to_replace = []
+        for i in range(int(self.numParticles * self.deprivation_prob)):
+            a = random.randint(0, self.numParticles-1)
+            while a in particles_to_replace:
+                a = random.randint(0, self.numParticles-1)
+            particles_to_replace.append(a)
+        self.initializeNewParticle(particles_to_replace)
 
     def getMap(self):
         """
@@ -611,64 +605,18 @@ class particleFilter():
 
             queue.put((index+i, predictedRanges))
 
-    def initializeNewParticle(self, bad_particles, good_particles,
-                              robot_particle):
+    def initializeNewParticle(self, particles_to_replace):
         """
         Initializes new particles depending on the existance of
         very good, good and bad particles
         """
-
-        # If robot_particle exists (different from -1), all the remaining
-        # particles will be relocated to a location close to the robot_particle
-        if(robot_particle != -1):
-            for i in range(self.numParticles):
-                noise_x = np.random.normal(
-                    loc=0, scale=0.3)
-                noise_y = np.random.normal(
-                    loc=0, scale=0.3)
-                noise_yaw = np.random.normal(
-                    loc=0, scale=0.1)
-                self.particlesPose[i, 0] = self.particlesPose[
-                    robot_particle, 0] + noise_x
-                self.particlesPose[i, 1] = self.particlesPose[
-                    robot_particle, 1] + noise_y
-                self.particlesPose[i, 2] = self.particlesPose[
-                    robot_particle, 2] + noise_yaw
-            return
-
-        # If good particles exist and there is no robot_particle,
-        # all the bad particles will be relocated to a location close
-        # to the good particles
-        if(len(good_particles) >= 1):
-            j = 0
-            for i in bad_particles:
-                noise_x = np.random.normal(
-                    loc=0, scale=0.3)
-                noise_y = np.random.normal(
-                    loc=0, scale=0.3)
-                noise_yaw = np.random.normal(
-                    loc=0, scale=0.1)
-                self.particlesPose[i, 0] = self.particlesPose[good_particles[j],
-                                                              0] + noise_x
-                self.particlesPose[i, 1] = self.particlesPose[good_particles[j],
-                                                              1] + noise_y
-                self.particlesPose[i, 2] = self.particlesPose[good_particles[j],
-                                                              2] + noise_yaw
-                j += 1
-                if(len(good_particles) == j):
-                    j = 0
-            return
-
-        # If there is no robot_particle or good particles, the bad particles
-        # will be relocated to a random position on the map
-        for i in bad_particles:
+        freeSpace = np.where(self.map == 1)
+        for i in particles_to_replace:
             # https://thispointer.com/find-the-index-of-a-value-in-numpy-array/
-            freeSpace = np.where(self.map == 1)
 
             # https://numpy.org/doc/stable/reference/random/generated/numpy.random.randint.html
             position = np.random.randint(
                 0, len(freeSpace[0]), size=1)
-
             self.particlesPose[i, 0] = freeSpace[1][position]
             self.particlesPose[i, 1] = freeSpace[0][position]
 
