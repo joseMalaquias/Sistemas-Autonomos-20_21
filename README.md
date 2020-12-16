@@ -20,6 +20,8 @@ roscd
 mv /home/<user>/catkin_ws/src/Sistemas-Autonomos-20_21-main/ /home/<user>/catkin_ws/src/mclocalization
 catkin build
 sudo apt-get install ros-kinetic-teleop-twist-keyboard
+sudo apt-get install python-pip
+sudo pip install numpy scipy
 ```
 
 Having your package built, open several terminal windows and run:
