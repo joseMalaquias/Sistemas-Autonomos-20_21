@@ -45,7 +45,7 @@ On the sixth terminal:
 ```
 rosrun rviz rviz 
 ```
-On the seventh terminal, in ```<number_of_particules>```, substitute by a number (ex: 50, 75, 100, 150, 200, ...) and in ```<rate>``` substitute by a rate in Hz (0.5, 1, 2, ...). For the average teste in Playpen, we reccomend 100 particales with a rate of 1 Hz (do not use numbers of particules much higher than the ones stated as it requires a lot of resources from your computer):
+On the seventh terminal, in ```<number_of_particules>```, substitute by a number (ex: 100, 200, 500, 1000, 2000, ...) and in ```<rate>``` substitute by a rate in Hz (0.5, 1, 2, ...). For the average teste in Playpen, we reccomend 500 particales with a rate of 2 Hz:
 ```
 rosrun mclocalization mcl.py <number_of_particles> <rate>
 ```
