@@ -50,6 +50,7 @@ On the sixth terminal:
 rosrun rviz rviz 
 ```
 On the seventh terminal, in ```<number_of_particules>```, substitute by a number (ex: 100, 200, 500, 1000, 2000, ...) and in ```<rate>``` substitute by a rate in Hz (0.5, 1, 2, ...). For the average teste in Playpen, we reccomend 500 particales with a rate of 2 Hz:
+Note: For "new_city" it is recommended to choose a number of particles above 1000 as it's a wider map.
 ```
 rosrun mclocalization mcl.py <number_of_particles> <rate>
 ```
