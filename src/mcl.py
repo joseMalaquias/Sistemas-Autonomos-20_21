@@ -15,13 +15,11 @@ import std_msgs.msg
 import threading
 from multiprocessing import Queue, Process
 
-from threading import Thread
-
 import time
 
 from scipy import ndimage
 
-NUM_ITERS = 25 # DEFAULT - Tested as being the best value for 500 particles
+NUM_ITERS = 25  # DEFAULT - Tested as being the best value for 500 particles
 
 
 # ROS messages
@@ -35,7 +33,6 @@ SCAN_TOPIC = "/scan"
 
 # https://stackoverflow.com/questions/4877624/numpy-array-of-objects
 # class particle():
-
 
 
 class particle():
@@ -159,8 +156,6 @@ class particleFilter():
 
     def __init__(self, NUMBER_OF_PARTICLES, RATE):
 
-	
-
         self.numParticles = NUMBER_OF_PARTICLES
         self.rate = RATE
         self.mutex = threading.Lock()
@@ -170,11 +165,13 @@ class particleFilter():
         # objects over iterating all the objects
         # So, numpy is used directly for performance
         # X, Y, Theta and Weight
-	# Particle's pose separated from particle's weight for performance (in the multiprocessing)
+        # Particle's pose separated from particle's weight for
+        # performance (in the multiprocessing)
         self.particlesPose = np.zeros((self.numParticles, 3))
-	self.particlesInGrid = np.zeros((self.numParticles, 3))
+        self.particlesInGrid = np.zeros((self.numParticles, 3))
         # In the beginning, all particles have the same weight
-        self.particlesWeight = np.full((self.numParticles), 1.0 / self.numParticles)
+        self.particlesWeight = np.full(
+            (self.numParticles), 1.0 / self.numParticles)
 
         # Sample of Laser Beams evaluated from the original 720 Laser Beams
         # from the Husky's Laser
@@ -183,19 +180,22 @@ class particleFilter():
             shape=(self.numParticles, self.desired_LaserBeams))
 
         self.map = None
-	self.obstacleDistanceMap = None
-	self.predictedRangesTest = np.zeros(shape=(self.numParticles, self.desired_LaserBeams))
-	self.predictedRangesOtherWay = np.zeros(shape=(self.numParticles, self.desired_LaserBeams))
+        self.obstacleDistanceMap = None
+        self.predictedRangesTest = np.zeros(
+            shape=(self.numParticles, self.desired_LaserBeams))
+        self.predictedRangesOtherWay = np.zeros(
+            shape=(self.numParticles, self.desired_LaserBeams))
         self.mapInfo = None
 
         # Stores the Map information
         self.getMap()
-	# Precompute data
-	# Creates the map with the euclidean distance from a cell to the closest obstacle
-	self.getObstacleDistanceMap()
-	
-	#print(self.map)
-	#print(self.obstacleDistanceMap)
+        # Precompute data
+        # Creates the map with the euclidean distance from a cell
+        # to the closest obstacle
+        self.getObstacleDistanceMap()
+
+        # print(self.map)
+        # print(self.obstacleDistanceMap)
         # Initialize the particles
         self.initializeParticles()
         # Initialize the ROS subscriptions from the particles() class
@@ -224,136 +224,119 @@ class particleFilter():
             self.laserSample()
             self.particleWeight = np.array([])
             self.particleDifference = np.array([])
-
+            if(self.numParticles % NUM_ITERS != 0):
+                numParticles_aux = self.numParticles
+                while True:
+                    if numParticles_aux > NUM_ITERS:
+                        numParticles_aux -= NUM_ITERS
+                    else:
+                        break
+                GENERAL_NUM_ITERS = NUM_ITERS
+                ONE_TIME_NUM_ITERS = numParticles_aux
+            else:
+                GENERAL_NUM_ITERS = NUM_ITERS
+                ONE_TIME_NUM_ITERS = NUM_ITERS
+                # print(GENERAL_NUM_ITERS, ONE_TIME_NUM_ITERS)
             # Only updates if there is any movement
             # This is due to the fact that the Odometry Topic always retrieves
             # minimal movement that is insignificant/negligible
-            if True:#if(self.v >= 0.001 or abs(self.yaw) >= 0.001):
+            if(self.v >= 0.001 or abs(self.yaw) >= 0.001):
                 # Updates all particles movement
 
-		startMovement = time.time()
+                startMovement = time.time()
 
                 for i in range(self.numParticles):
-		    if self.v < 0.001:
-		        self.v = 0.001
-		    if self.yaw < 0.001:
-                        self.yaw = 0.001
+                    if self.v < 0.001:
+                        self.v = 0.001
+                    if abs(self.yaw) < 0.001:
+                        if self.yaw > 0:
+                            self.yaw = 0.001
+                        if self.yaw < 0:
+                            self.yaw = -0.001
                     self.movementPrediction(i)
-		
-		endMovement = time.time()
+
+                endMovement = time.time()
                 # Calculates the predicted ranges to each particle using
                 # multiprocessing
 
-       		
-		# Used to retrieve information from multiprocessing
-        	queue = Queue()
-		queue_aux = []
-		queue_aux1 = []
-		processes = []
-
-		startPredictedRange = time.time()
-
-		startCreateProcess = time.time()
-                for i in range(0, self.numParticles, NUM_ITERS):
-                    p = Process(target=self.measurePrediction, args=(self.particlesPose[i:i + NUM_ITERS], i, queue))
+                # Used to retrieve information from multiprocessing
+                queue = Queue()
+                queue_aux = []
+                processes = []
+                processes = []
+                startTestRange = time.time()
+                self.particlesInGrid[:, 0], self.particlesInGrid[:, 1] = \
+                    self.convertToGridArray(
+                    self.particlesPose[:, 0], self.particlesPose[:, 1])
+                self.particlesInGrid[:, 2] = self.particlesPose[:, 2]
+                p = Process(target=self.testRange, args=(
+                    self.particlesInGrid[0: ONE_TIME_NUM_ITERS], 0, queue, ONE_TIME_NUM_ITERS))
+                processes.append(p)
+                p.start()
+                for i in range(ONE_TIME_NUM_ITERS, self.numParticles, GENERAL_NUM_ITERS):
+                    p = Process(target=self.testRange, args=(
+                        self.particlesInGrid[i:i + GENERAL_NUM_ITERS], i, queue, GENERAL_NUM_ITERS))
                     processes.append(p)
-		    p.start()
+                    p.start()
                 # Retrieves each particle predicted ranges from
                 # the processes
-		endCreateProcess = time.time()
-		startGrabAnswer = time.time()
-		for i in range(self.numParticles):
-		    queue_aux.append(queue.get())
-		endGrabAnswer = time.time()
-		startJoinProcess = time.time()
-		for p in processes:
-		    p.join()
-		endJoinProcess = time.time()
-
-
-		endPredictedRange = time.time()
-
-		processes = []
-		startTestRange = time.time()
-		self.particlesInGrid[:, 0], self.particlesInGrid[:,1] = self.convertToGridArray(self.particlesPose[:,0], self.particlesPose[:,1])
-		self.particlesInGrid[:, 2] = self.particlesPose[:,2]
-                for i in range(0, self.numParticles, NUM_ITERS):
-                    p = Process(target=self.testRange, args=(self.particlesInGrid[i:i + NUM_ITERS], i, queue))
-                    processes.append(p)
-		    p.start()
-                # Retrieves each particle predicted ranges from
-                # the processes
-		for i in range(self.numParticles):
-		    queue_aux1.append(queue.get())
-		for p in processes:
-		    p.join()
-		endTestRange = time.time()
+                for i in range(self.numParticles):
+                    queue_aux.append(queue.get())
+                for p in processes:
+                    p.join()
+                endTestRange = time.time()
 
                 # Reorganizes the values returned from the
                 # multiprocesses queues
 
-		startReorganization = time.time()
+                startReorganization = time.time()
 
                 for i in range(self.numParticles):
-                    self.predictedRanges[queue_aux[i][0]] = queue_aux[i][1]
-		    self.predictedRangesTest[queue_aux1[i][0]] = queue_aux1[i][1]
+                    self.predictedRanges[queue_aux[i]
+                                         [0]] = queue_aux[i][1]
 
-		endReorganization = time.time()
-		
-		#print("Comeco o teste do laser")
-		#print(self.predictedRanges)
-		#print("Teste")
-
-		#startTestRange = time.time()
-		#for i in range(0, self.numParticles):
-		    #a,b = self.testRange(self.particlesPose[i])
-		 #   a = self.testRange(self.particlesPose[i])
-		  #  self.predictedRangesTest[i] = a
-	            #self.predictedRangesOtherWay[i] = b
-		
-		#endTestRange = time.time()
-		#print(self.predictedRangesTest)
-		#print(self.predictedRangesOtherWay)
-		#print("Fim do teste do laser")
+                endReorganization = time.time()
 
                 # Calculates the difference between the robot true ranges and
                 # the particle predicted ranges
 
-		startDeviation = time.time()
+                startDeviation = time.time()
 
                 for i in range(self.numParticles):
                     self.measurePredictionDeviation(self.particlesPose[i], i)
 
-		endDeviation = time.time()
+                endDeviation = time.time()
 
                 # Calculates the weights
 
-		startWeight = time.time()
+                startWeight = time.time()
 
                 self.weightCalculation()
 
-		endWeight = time.time()
+                endWeight = time.time()
 
                 # Resamples the particles
 
-		startResampling = time.time()
+                startResampling = time.time()
 
-                self.resampling()
+                if self.neff < (2*self.numParticles)/3:
+                    self.resampling()
 
-		endResampling = time.time()
+                endResampling = time.time()
 
                 # Handles the case of particle Deprivation
 
-		startDeprivation = time.time()
+                startDeprivation = time.time()
 
                 if self.v >= 0.1:
-                    self.particleDeprivation()
+                    pass
+                    # self.particleDeprivation()
 
-		endDeprivation = time.time()
+                endDeprivation = time.time()
 
             # Publishes the particles
 
-	    startPublishing = time.time()
+            startPublishing = time.time()
 
             self.publishParticles()
 
@@ -361,20 +344,17 @@ class particleFilter():
 
             print("Publishing...\n")
 
-	    if printed < 5:
-		print("Movement: %f" % (endMovement - startMovement))
-		print("Predicted Range: %f" % (endPredictedRange - startPredictedRange))
-		print("Create Process: %f" % (endCreateProcess - startCreateProcess))
-		print("Get Answer: %f" % (endGrabAnswer - startGrabAnswer))
-		print("Join Processes: %f" % (endJoinProcess - startJoinProcess))
-		print("Reorganization: %f" % (endReorganization - startReorganization))
-		print("Test Range: %f" % (endTestRange - startTestRange))
-		print("Deviation: %f" % (endDeviation - startDeviation))
-		print("Weight: %f" % (endWeight - startWeight))
-		print("Resampling: %f" % (endResampling - startResampling))
-		print("Deprivation: %f" % (endDeprivation - startDeprivation))
-		print("Publishing: %f" % (endPublishing - startPublishing))
-		printed = printed + 1
+            if((printed < 5) and (self.v >= 0.001 or abs(self.yaw) >= 0.001)):
+                print("Movement: %f" % (endMovement - startMovement))
+                print("Reorganization: %f" %
+                      (endReorganization - startReorganization))
+                print("Test Range: %f" % (endTestRange - startTestRange))
+                print("Deviation: %f" % (endDeviation - startDeviation))
+                print("Weight: %f" % (endWeight - startWeight))
+                print("Resampling: %f" % (endResampling - startResampling))
+                print("Deprivation: %f" % (endDeprivation - startDeprivation))
+                print("Publishing: %f" % (endPublishing - startPublishing))
+                printed = printed + 1
 
             rate.sleep()
 
@@ -430,64 +410,17 @@ class particleFilter():
             loc=0, scale=abs(x_mov)*0.1)
         noise_y = np.random.normal(
             loc=0, scale=abs(y_mov)*0.1)
-        noise_yaw = np.random.normal(
-            loc=0, scale=abs(self.yaw)*0.05)
+        if(abs(self.yaw)*0.05 != 0):
+            noise_yaw = np.random.normal(
+                loc=0, scale=abs(self.yaw)*0.05)
+        else:
+            noise_yaw = 0.00001
 
         self.particlesPose[i, 0] += self.movementDirection * \
             x_mov + noise_x
         self.particlesPose[i, 1] += self.movementDirection * \
             y_mov + noise_y
         self.particlesPose[i, 2] += self.yaw + noise_yaw
-
-        ranges = []
-        range_step = self.mapInfo.resolution
-
-
-    def measurePrediction(self, particlePosition, index, queue):
-        """
-        Function that predicts the ranges that the robots laser would
-        have if it were on the particles position
-        """
-	for i in range(NUM_ITERS):
-            predictedRanges = np.array([])
-            currentAngle = self.callbacks.angle_min
-            particleOrientation = tf.transformations.quaternion_from_euler(
-            0, 0, particlePosition[i][2])
-
-            # Ranges will be calculated for each angle
-            for currentAngle in self.anglesSampled:
-
-                laserOrientation = tf.transformations.quaternion_from_euler(
-                0, 0, currentAngle)
-                _, _, laserRotation = tf.transformations.euler_from_quaternion(
-                tf.transformations.quaternion_multiply(particleOrientation,
-                                                       laserOrientation))
-                # loop will evaluate if there is an obstacle at a given range
-                # if there is not, increases the range and checks again until
-                # an obstacle is met or the maximum range is reached
-                currentRange = self.callbacks.range_min
-                while(currentRange <= self.callbacks.range_max):
-                    x_laser = currentRange * \
-                    math.cos(laserRotation)
-                    y_laser = currentRange * \
-                    math.sin(laserRotation)
-                    x_predicted = particlePosition[i][0] + x_laser
-                    y_predicted = particlePosition[i][1] + y_laser
-                    x_predicted_grid, y_predicted_grid = self.convertToGrid(
-                    x_predicted, y_predicted)
-                    if(self.map[y_predicted_grid, x_predicted_grid] == 0):
-                        break
-                    currentRange += self.mapInfo.resolution
-                if(currentRange > self.callbacks.range_max):
-                    currentRange = self.callbacks.range_max
-                elif (currentRange < self.callbacks.range_min):
-                    currentRange = self.callbacks.range_min
-
-                predictedRanges = np.append(
-                    predictedRanges, currentRange)
-            # Since we are using multiprocessing, this is the queue that stores
-            # that value
-            queue.put((index+i, predictedRanges))
 
     def measurePredictionDeviation(self, particlePos, index):
         """
@@ -499,7 +432,7 @@ class particleFilter():
         x, y = self.convertToGrid(particlePos[0], particlePos[1])
 
         # If particle is out of bounds, attribute a weight of zero
-        if(self.map[x, y] == 0):
+        if(self.map[y, x] == 0):
             self.particleWeight = np.append(
                 self.particleWeight, np.exp(-400**2))
             self.particleDifference = np.append(
@@ -520,7 +453,7 @@ class particleFilter():
         particleDifference_aux = np.linalg.norm(rangesDifference)
         self.particleDifference = np.append(
             self.particleDifference, particleDifference_aux)
-        laserDeviation = 50
+        laserDeviation = 10
 
         # Calculate the weight (not normalized) of that particle
         weight = (1/(math.sqrt(2*math.pi)*laserDeviation)) * \
@@ -533,16 +466,19 @@ class particleFilter():
         Normalizes the weights
         """
         totalSum = sum(self.particleWeight)
+        self.neff = 0.0
+        weights_squared = 0.0
         for i in range(self.numParticles):
             self.particlesWeight[i] = self.particleWeight[i] / totalSum
+            weights_squared += self.particlesWeight[i]**2
+        self.neff = 1/(weights_squared)
 
     def resampling(self):
         """
         Stochastic universal sampling algorithm
         """
         new_particlesPose = np.zeros((self.numParticles, 3))
-	new_particlesWeight = np.zeros(self.numParticles)
-
+        new_particlesWeight = np.zeros(self.numParticles)
         r = random.uniform(0, 1.0/self.numParticles)
         c = self.particlesWeight[0]
         i = 0
@@ -555,10 +491,10 @@ class particleFilter():
                 c = c + self.particlesWeight[i]
 
             new_particlesPose[j] = self.particlesPose[i]
-	    new_particlesWeight[j] = self.particlesWeight[i]
+            new_particlesWeight[j] = self.particlesWeight[i]
             j += 1
         self.particlesPose = new_particlesPose
-	self.particlesWeight = new_particlesWeight
+        self.particlesWeight = new_particlesWeight
 
     def particleDeprivation(self):
         """
@@ -622,61 +558,58 @@ class particleFilter():
     def getObstacleDistanceMap(self):
 
         print("Getting euclidean distance among positions and closest obstacles...\n")
-	
-	# https://docs.scipy.org/doc/scipy-0.14.0/reference/generated/scipy.ndimage.morphology.distance_transform_edt.html
-	
-	self.obstacleDistanceMap = ndimage.distance_transform_edt(self.map)
+
+        # https://docs.scipy.org/doc/scipy-0.14.0/reference/generated/scipy.ndimage.morphology.distance_transform_edt.html
+
+        self.obstacleDistanceMap = ndimage.distance_transform_edt(self.map)
 
         print("Euclidean distance transform map created.\n")
 
         return
 
     # step along the (x,y,theta) ray until colliding with an obstacle
-    def testRange(self, particlePosition, index, queue):
+    def testRange(self, particlePosition, index, queue, NUM_ITERATIONS):
 
-	range_min = self.callbacks.range_min / self.mapInfo.resolution
-	range_max = self.callbacks.range_max / self.mapInfo.resolution
+        range_min = self.callbacks.range_min / self.mapInfo.resolution
+        range_max = self.callbacks.range_max / self.mapInfo.resolution
 
-        for i in range(NUM_ITERS):
+        for i in range(NUM_ITERATIONS):
             predictedRanges = np.array([])
-	    #predictedRangesOther = np.array([])
+            # predictedRangesOther = np.array([])
             currentAngle = self.callbacks.angle_min
-            particleOrientation = tf.transformations.quaternion_from_euler(0, 0, particlePosition[i][2])
-	    # Ranges will be calculated for each angle
+            particleOrientation = tf.transformations.quaternion_from_euler(
+                0, 0, particlePosition[i][2])
+            # Ranges will be calculated for each angle
             for currentAngle in self.anglesSampled:
-	        laserOrientation = tf.transformations.quaternion_from_euler(0, 0, currentAngle)
-		_, _, laserRotation = tf.transformations.euler_from_quaternion(tf.transformations.quaternion_multiply(particleOrientation, laserOrientation))
+                laserOrientation = tf.transformations.quaternion_from_euler(
+                    0, 0, currentAngle)
+                _, _, laserRotation = tf.transformations.euler_from_quaternion(
+                    tf.transformations.quaternion_multiply(
+                        particleOrientation, laserOrientation))
 
-	        #currentRange = self.callbacks.range_min
-		currentRange = range_min
-	        coeff = 0.99
-	        while(currentRange <= range_max):
-	            x_laser = currentRange * math.cos(laserRotation)
-	            y_laser = currentRange * math.sin(laserRotation)
-	            x_predicted = particlePosition[i][0] + x_laser
+                currentRange = range_min
+                coeff = 0.99
+                while(currentRange <= range_max):
+                    x_laser = currentRange * math.cos(laserRotation)
+                    y_laser = currentRange * math.sin(laserRotation)
+                    x_predicted = particlePosition[i][0] + x_laser
                     y_predicted = particlePosition[i][1] + y_laser
-		    #x_predicted_grid, y_predicted_grid = self.convertToGrid(
-                    #x_predicted, y_predicted)
-	            #dist = self.obstacleDistanceMap[y_predicted_grid, x_predicted_grid]
-                    dist = self.obstacleDistanceMap[int(y_predicted), int(x_predicted)]
-	            if dist == 0.0:
-		        break
-	            #currentRange += max(dist*coeff*self.mapInfo.resolution, self.mapInfo.resolution)
-		    currentRange += max(dist*coeff, 1.0)
+                    dist = self.obstacleDistanceMap[int(
+                        y_predicted), int(x_predicted)]
+                    if dist == 0.0:
+                        break
+                    currentRange += max(dist*coeff, 1.0)
 
-        	currentRange *= self.mapInfo.resolution
-	        if(currentRange > range_max):
+                currentRange *= self.mapInfo.resolution
+                if(currentRange > range_max):
                     currentRange = range_max
                 elif (currentRange < range_min):
                     currentRange = range_min
-	        
-	        predictedRanges = np.append(predictedRanges, self.roundToMapResolution(currentRange))
-	
-	        #currentRange = math.sqrt((particlePosition[0] - x_predicted)**2 + (particlePosition[1] - y_predicted)**2)
-	        #print(currentRange)
-	        #predictedRangesOther = np.append(predictedRangesOther, currentRange)
+
+                predictedRanges = np.append(
+                    predictedRanges, self.roundToMapResolution(currentRange))
+
             queue.put((index+i, predictedRanges))
-	#return predictedRanges#, predictedRangesOther
 
     def initializeNewParticle(self, bad_particles, good_particles,
                               robot_particle):
@@ -716,11 +649,11 @@ class particleFilter():
                 noise_yaw = np.random.normal(
                     loc=0, scale=0.1)
                 self.particlesPose[i, 0] = self.particlesPose[good_particles[j],
-                                                      0] + noise_x
+                                                              0] + noise_x
                 self.particlesPose[i, 1] = self.particlesPose[good_particles[j],
-                                                      1] + noise_y
+                                                              1] + noise_y
                 self.particlesPose[i, 2] = self.particlesPose[good_particles[j],
-                                                      2] + noise_yaw
+                                                              2] + noise_yaw
                 j += 1
                 if(len(good_particles) == j):
                     j = 0
@@ -741,7 +674,8 @@ class particleFilter():
 
             # https://numpy.org/doc/stable/reference/random/generated/numpy.random.random_sample.html
             # Convert angle to a number between 0 and 2*Pi
-            self.particlesPose[i, 2] = np.random.random_sample(1) * math.pi * 2.0
+            self.particlesPose[i, 2] = np.random.random_sample(
+                1) * math.pi * 2.0
 
             roll, pitch, yaw = tf.transformations.euler_from_quaternion(
                 (self.mapInfo.origin.orientation.x,
@@ -755,7 +689,7 @@ class particleFilter():
             # Store x values temporarily since it will be changed
             tempX = np.copy(self.particlesPose[i, 0])
             self.particlesPose[i, 0] = (cos*self.particlesPose[i, 0] -
-                                    sin*self.particlesPose[i, 1]) * \
+                                        sin*self.particlesPose[i, 1]) * \
                 float(self.mapInfo.resolution) + self.mapInfo.origin.position.x
 
             self.particlesPose[i, 1] = (sin*tempX + cos*self.particlesPose[i, 1]) * \
@@ -764,9 +698,10 @@ class particleFilter():
             self.particlesPose[i, 2] += yaw
 
     # https://stackoverflow.com/questions/8118982/rounding-numbers-to-a-specific-resolution
-    def roundToMapResolution (self, value):
-	# ATTENTION: Can have a small round error - test range compared with real range
-    	return round(value / self.mapInfo.resolution) * self.mapInfo.resolution
+    def roundToMapResolution(self, value):
+        # ATTENTION: Can have a small round error - test range compared with
+        # real range
+        return round(value / self.mapInfo.resolution) * self.mapInfo.resolution
 
     def initializeParticles(self):
         """
@@ -817,11 +752,11 @@ class particleFilter():
         # Store x values temporarily since it will be changed
         tempX = np.copy(self.particlesPose[:, 0])
         self.particlesPose[:, 0] = (cos*self.particlesPose[:, 0] -
-                                sin*self.particlesPose[:, 1]) * \
+                                    sin*self.particlesPose[:, 1]) * \
             float(self.mapInfo.resolution) + self.mapInfo.origin.position.x
 
-        self.particlesPose[:, 1] = (sin*tempX + cos*self.particlesPose[:, 1]) * \
-            float(self.mapInfo.resolution) + self.mapInfo.origin.position.y
+        self.particlesPose[:, 1] = (sin*tempX + cos*self.particlesPose[:, 1]) \
+            * float(self.mapInfo.resolution) + self.mapInfo.origin.position.y
 
         self.particlesPose[:, 2] += yaw
 
@@ -844,8 +779,8 @@ class particleFilter():
         x_grid = (x - self.mapInfo.origin.position.x) / self.mapInfo.resolution
         y_grid = (y - self.mapInfo.origin.position.y) / self.mapInfo.resolution
 
-	#x_grid.astype(int)
-	#y_grid.astype(int)
+        # x_grid.astype(int)
+        # y_grid.astype(int)
 
         return x_grid, y_grid
 
@@ -898,7 +833,7 @@ if __name__ == "__main__":
         rate = 1
     else:
         numParticles = int(argv[1])
-        rate = int(argv[2])
+        rate = float(argv[2])
 
     pf = particleFilter(numParticles, rate)
     rospy.spin()
