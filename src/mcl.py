@@ -17,6 +17,9 @@ from multiprocessing import Queue, Process
 
 from scipy import ndimage
 
+import measurePrediction
+
+
 NUM_ITERS = 25  # DEFAULT - Tested as being the best value for
 # 500/1000 particles
 
@@ -262,39 +265,13 @@ class particleFilter():
                 # Calculates the predicted ranges to each particle using
                 # multiprocessing
 
-                # Used to retrieve information from multiprocessing
-                queue = Queue()
-                queue_aux = []
-                processes = []
                 self.particlesInGrid[:, 0], self.particlesInGrid[:, 1] = \
                     self.convertToGridArray(
                     self.particlesPose[:, 0], self.particlesPose[:, 1])
                 self.particlesInGrid[:, 2] = self.particlesPose[:, 2]
-                p = Process(target=self.predictRanges, args=(
-                    self.particlesInGrid[0: ONE_TIME_NUM_ITERS], 0, queue,
-                    ONE_TIME_NUM_ITERS))
-                processes.append(p)
-                p.start()
-                for i in range(ONE_TIME_NUM_ITERS, self.numParticles,
-                               GENERAL_NUM_ITERS):
-                    p = Process(target=self.predictRanges, args=(
-                        self.particlesInGrid[i:i + GENERAL_NUM_ITERS], i,
-                        queue, GENERAL_NUM_ITERS))
-                    processes.append(p)
-                    p.start()
-                # Retrieves each particle predicted ranges from
-                # the processes
-                for i in range(self.numParticles):
-                    queue_aux.append(queue.get())
-                for p in processes:
-                    p.join()
 
-                # Reorganizes the values returned from the
-                # multiprocesses queues
-
-                for i in range(self.numParticles):
-                    self.predictedRanges[queue_aux[i]
-                                         [0]] = queue_aux[i][1]
+                self.predictedRanges = measurePrediction.measurePrediction(self.particlesInGrid, self.mapInfo.resolution, np.array(
+                    (self.callbacks.range_min, self.callbacks.range_max)), self.anglesSampled, self.obstacleDistanceMap, self.numParticles)
 
                 # Calculates the difference between the robot true ranges and
                 # the particle predicted ranges
@@ -470,6 +447,8 @@ class particleFilter():
         self.w_fast += self.alpha_fast * (self.w_avg - self.w_fast)
         self.deprivation_prob = max(0, 1.0 - self.w_fast / self.w_slow)
         particles_to_replace = []
+        if self.deprivation_prob > 0.20:
+            self.deprivation_prob = 0.20
         for i in range(int(self.numParticles * self.deprivation_prob)):
             a = random.randint(0, self.numParticles-1)
             while a in particles_to_replace:
@@ -521,48 +500,6 @@ class particleFilter():
 
         return
 
-    # step along the (x,y,theta) ray until colliding with an obstacle
-    def predictRanges(self, particlePosition, index, queue, NUM_ITERATIONS):
-
-        range_min = self.callbacks.range_min / self.mapInfo.resolution
-        range_max = self.callbacks.range_max / self.mapInfo.resolution
-
-        for i in range(NUM_ITERATIONS):
-            predictedRanges = np.array([])
-            currentAngle = self.callbacks.angle_min
-            particleOrientation = tf.transformations.quaternion_from_euler(
-                0, 0, particlePosition[i][2])
-            for currentAngle in self.anglesSampled:
-                laserOrientation = tf.transformations.quaternion_from_euler(
-                    0, 0, currentAngle)
-                _, _, laserRotation = tf.transformations.euler_from_quaternion(
-                    tf.transformations.quaternion_multiply(
-                        particleOrientation, laserOrientation))
-
-                currentRange = range_min
-                coeff = 0.99
-                while(currentRange <= range_max):
-                    x_laser = currentRange * math.cos(laserRotation)
-                    y_laser = currentRange * math.sin(laserRotation)
-                    x_predicted = particlePosition[i][0] + x_laser
-                    y_predicted = particlePosition[i][1] + y_laser
-                    dist = self.obstacleDistanceMap[int(
-                        y_predicted), int(x_predicted)]
-                    if dist == 0.0:
-                        break
-                    currentRange += max(dist*coeff, 1.0)
-
-                currentRange *= self.mapInfo.resolution
-                if(currentRange > range_max):
-                    currentRange = range_max
-                elif (currentRange < range_min):
-                    currentRange = range_min
-
-                predictedRanges = np.append(
-                    predictedRanges, self.roundToMapResolution(currentRange))
-
-            queue.put((index+i, predictedRanges))
-
     def initializeNewParticle(self, particles_to_replace):
         """
         In case of the position estimation being way off track or
@@ -602,12 +539,6 @@ class particleFilter():
                 float(self.mapInfo.resolution) + self.mapInfo.origin.position.y
 
             self.particlesPose[i, 2] += yaw
-
-    # https://stackoverflow.com/questions/8118982/rounding-numbers-to-a-specific-resolution
-    def roundToMapResolution(self, value):
-        # ATTENTION: Can have a small round error - test range compared with
-        # real range
-        return round(value / self.mapInfo.resolution) * self.mapInfo.resolution
 
     def initializeParticles(self):
         """
