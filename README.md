@@ -64,3 +64,24 @@ If you want to see the robot location directly in Rviz, a topic of the Husky "tr
 
 
 Enjoy!
+
+
+
+## Guide to fixing errors
+
+- If you have built your catkin previously with catkin make, you need to run the command:
+```catkin clean -y```
+And then run:
+```catkin build```
+
+
+- If you are getting an error saying that the mclocation package was not found, check if you executed the commands presented in the beggining of this guide. If you did, replace ```<user>``` with your machine user and run:
+```source /home/<user>/catkin_ws/devel/setup.bash```
+
+
+- If you are still getting the same error, replace ```<user>``` with your machine user and run the following commands:
+```cd /home/<user>/catkin_ws/src/mclocalization/src```
+```chmod +x mcl.py```
+
+In ```<number_of_particules>```, substitute by a number (ex: 100, 200, 500, 1000, 2000, ...) and in ```<rate>``` substitute by a rate in Hz (0.5, 1, 2, ...).  Run the following command:
+```python mcl.py <number_of_particules> <rate>```
