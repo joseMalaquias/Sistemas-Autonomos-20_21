@@ -27,7 +27,7 @@ Having your package built, open several terminal windows and run:
 ```
 roscore
 ```
-On the second terminal, in ```<user>```, substitute by your user and in ```<map_name>``` substitute by playpen OR fastfood, and run:
+On the second terminal, in ```<user>```, substitute by your user and in ```<map_name>``` substitute by ```playpen```, ```fastfoodcar``` OR ```new_city```, and run:
 ```
 roslaunch husky_gazebo husky_empty_world.launch world_name:=/home/<user>/catkin_ws/src/mclocalization/Maps/<map_name>.world
 ```
@@ -35,7 +35,7 @@ On the third terminal:
 ```
 rosrun teleop_twist_keyboard teleop_twist_keyboard.py cmd_vel:=/cmd_vel
 ```
-On the fourth terminal,  in ```<user>```, substitute by your user and in ```<map_name>``` substitute by ```playpen``` OR ```fastfood```, and run:
+On the fourth terminal,  in ```<user>```, substitute by your user and in ```<map_name>``` substitute by ```playpen```,```fastfood2``` OR ```new_map_city```, and run:
 ```
 rosrun map_server map_server /home/<user>/catkin_ws/src/mclocalization/Maps/<map_name>.yaml
 ```
