@@ -82,7 +82,7 @@ And then run:
 ```catkin build```
 
 
-- If you are getting an error saying that the mclocation package was not found, check if you executed the commands presented in the beggining of this guide. If you did, replace ```<user>``` with your machine user and run:
+- If you are getting an error saying that the mclocalization package was not found, check if you executed the commands presented in the beggining of this guide. If you did, replace ```<user>``` with your machine user and run:
 ```source /home/<user>/catkin_ws/devel/setup.bash```
 
 
