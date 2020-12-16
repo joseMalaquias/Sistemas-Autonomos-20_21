@@ -76,7 +76,7 @@ Enjoy!
 
 ## Guide to fixing errors
 
-- If you have built your catkin previously with catkin make, you need to run the command:
+- If you have built your catkin previously with catkin_make, you need to run the command:
 ```catkin clean -y```
 And then run:
 ```catkin build```
