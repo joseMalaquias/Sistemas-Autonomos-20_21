@@ -13,9 +13,11 @@ This github contemplates the implementation of Monte Carlo Localization using a 
 ## Steps to run the code
 - Download this repository and extract it.
 - Insert it in your catkin_ws/src.
-- Insert the following commands:
+- Insert the following commands, while replacing ```<user>``` by your machine user:
+
 ```
 roscd
+mv /home/<user>/catkin_ws/src/Sistemas-Autonomos-20_21-main/ /home/<user>/catkin_ws/src/mclocalization
 catkin build
 sudo apt-get install ros-kinetic-teleop-twist-keyboard
 ```
