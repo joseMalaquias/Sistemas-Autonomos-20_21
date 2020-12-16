@@ -56,12 +56,11 @@ rosrun mclocalization mcl.py <number_of_particles> <rate>
 
 Open rviz, select option "Add" (bottom left), and add the Map and PoseArray topics. If desired, the LaserScan topic can be added too.
 In order to move the husky, select the third terminal and follow the instructions on the terminal window.
-When the Husky gets localized, a message on the seventh terminal will pop up saying "Husky Localized!"
 
 
 In order to check the results, we reccomend checking the Particles positions in Rviz and the Husky position in the Gazebo program and comparing with each other.
 
-If you want to see the robot location directly in Rviz, a topic of the Husky "true" location may be added by adding the topic "InteractiveMarkers", however, sometimes this suffers a deviation, and doesn't represent its true position, so we don't recommend it.
+If you want to see the robot location directly in Rviz, a topic of the Husky "true" location may be added by adding the topic "InteractiveMarkers", however, sometimes this suffers a deviation, and doesn't represent its true position (in case of kidnapping, it mantains the last position which is wrong), so we don't recommend it.
 
 
 Enjoy!
