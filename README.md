@@ -67,6 +67,13 @@ Enjoy!
 
 
 
+
+
+
+
+
+
+
 ## Guide to fixing errors
 
 - If you have built your catkin previously with catkin make, you need to run the command:
