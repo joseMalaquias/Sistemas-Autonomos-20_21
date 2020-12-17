@@ -247,9 +247,8 @@ class particleFilter():
                     self.measurePredictionDeviation(self.particlesPose[i], i)
 
                 # Calculates the weights
-
                 self.weightCalculation()
-
+		
                 # Resamples the particles
 
                 if self.neff < (2*self.numParticles)/3:
@@ -370,17 +369,11 @@ class particleFilter():
         """
         Normalizes the weights
         """
-        totalSum = sum(self.particleWeight)
-        self.neff = 0.0
-        weights_squared = 0.0
-        weights_sum = 0.0
-        for i in range(self.numParticles):
-            self.particlesWeight[i] = self.particleWeight[i] / totalSum
-            weights_sum += self.particleWeight[i]/self.numParticles
-            weights_squared += self.particlesWeight[i]**2
+        totalSum = np.sum(self.particleWeight)
+        self.particlesWeight = np.divide(self.particleWeight, totalSum)
+        weights_squared = np.sum(np.square(self.particlesWeight))
         self.neff = 1/(weights_squared)
-        # print(weights_sum)
-        self.w_avg = weights_sum
+        self.w_avg = np.sum(np.divide(self.particleWeight, self.numParticles))
 
     def resampling(self):
         """
