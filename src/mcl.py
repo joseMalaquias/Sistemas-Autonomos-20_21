@@ -219,7 +219,6 @@ class particleFilter():
             # Samples the 720 laser Beams to 16
             self.laserSample()
             self.particleWeight = np.array([])
-            self.particleDifference = np.array([])
 
             # Only updates if there is any movement
             # This is due to the fact that the Odometry Topic always retrieves
@@ -345,8 +344,6 @@ class particleFilter():
         if(self.map[y, x] == 0):
             self.particleWeight = np.append(
                 self.particleWeight, np.exp(-400**2))
-            self.particleDifference = np.append(
-                self.particleDifference, self.desired_LaserBeams * 1000)
             return
 
         # For all angles, calculate the difference between the ranges
@@ -360,14 +357,12 @@ class particleFilter():
                                    self.predictedRanges[index, i]))
 
         # calculate the norm of those ranges differences
-        particleDifference_aux = np.linalg.norm(rangesDifference)
-        self.particleDifference = np.append(
-            self.particleDifference, particleDifference_aux)
+        particleDifference = np.linalg.norm(rangesDifference)
         laserDeviation = 10
 
         # Calculate the weight (not normalized) of that particle
         weight = (1/(math.sqrt(2*math.pi)*laserDeviation)) * \
-            math.exp(-(particleDifference_aux**2)/(2*laserDeviation**2))
+            math.exp(-(particleDifference**2)/(2*laserDeviation**2))
 
         self.particleWeight = np.append(self.particleWeight, weight)
 
