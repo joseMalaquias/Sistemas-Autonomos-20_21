@@ -19,6 +19,7 @@ from scipy import ndimage
 
 import measurePrediction
 
+
 # ROS messages
 
 # Occupancy Grid Map message
