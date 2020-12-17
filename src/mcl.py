@@ -19,11 +19,6 @@ from scipy import ndimage
 
 import measurePrediction
 
-
-NUM_ITERS = 25  # DEFAULT - Tested as being the best value for
-# 500/1000 particles
-
-
 # ROS messages
 
 # Occupancy Grid Map message
@@ -225,22 +220,6 @@ class particleFilter():
             self.laserSample()
             self.particleWeight = np.array([])
             self.particleDifference = np.array([])
-
-            # If the number of total particles is not a multiple
-            # of NUM_ITERS, dedicate one process to a dedicated
-            # number of particles
-            if(self.numParticles % NUM_ITERS != 0):
-                numParticles_aux = self.numParticles
-                while True:
-                    if numParticles_aux > NUM_ITERS:
-                        numParticles_aux -= NUM_ITERS
-                    else:
-                        break
-                GENERAL_NUM_ITERS = NUM_ITERS
-                ONE_TIME_NUM_ITERS = numParticles_aux
-            else:
-                GENERAL_NUM_ITERS = NUM_ITERS
-                ONE_TIME_NUM_ITERS = NUM_ITERS
 
             # Only updates if there is any movement
             # This is due to the fact that the Odometry Topic always retrieves
