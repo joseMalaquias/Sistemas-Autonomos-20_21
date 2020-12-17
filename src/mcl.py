@@ -189,10 +189,6 @@ class particleFilter():
 
         self.map = None
         self.obstacleDistanceMap = None
-        self.predictedRangesTest = np.zeros(
-            shape=(self.numParticles, self.desired_LaserBeams))
-        self.predictedRangesOtherWay = np.zeros(
-            shape=(self.numParticles, self.desired_LaserBeams))
         self.mapInfo = None
 
         # Stores the Map information
@@ -253,13 +249,6 @@ class particleFilter():
                 # Updates all particles movement
 
                 for i in range(self.numParticles):
-                    if self.v < 0.001:
-                        self.v = 0.001
-                    if abs(self.yaw) < 0.001:
-                        if self.yaw > 0:
-                            self.yaw = 0.001
-                        if self.yaw < 0:
-                            self.yaw = -0.001
                     self.movementPrediction(i)
 
                 # Calculates the predicted ranges to each particle using
