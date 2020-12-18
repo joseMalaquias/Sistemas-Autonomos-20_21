@@ -4206,8 +4206,8 @@ static PyObject *__pyx_pf_3MCL_2predictRangeAndCalculateDeviation(CYTHON_UNUSED 
  *                 currentRange = minRange
  * 
  *             rangesDifference = np.append(rangesDifference, (rangesSampled[j] - roundToMapResolution(currentRange, mapInfo[2])))             # <<<<<<<<<<<<<<
- *             roundToMapResolution(currentRange, mapInfo[2])
  *         # calculate the norm of those ranges differences
+ *         particleDifference = np.linalg.norm(rangesDifference)
  */
       __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_n_s_np); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 168, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_7);
@@ -4305,41 +4305,22 @@ static PyObject *__pyx_pf_3MCL_2predictRangeAndCalculateDeviation(CYTHON_UNUSED 
       __pyx_t_10 = 0;
       __Pyx_DECREF_SET(__pyx_v_rangesDifference, ((PyArrayObject *)__pyx_t_5));
       __pyx_t_5 = 0;
-
-      /* "mcl.pyx":169
- * 
- *             rangesDifference = np.append(rangesDifference, (rangesSampled[j] - roundToMapResolution(currentRange, mapInfo[2])))
- *             roundToMapResolution(currentRange, mapInfo[2])             # <<<<<<<<<<<<<<
- *         # calculate the norm of those ranges differences
- *         particleDifference = np.linalg.norm(rangesDifference)
- */
-      __pyx_t_1 = 2;
-      __pyx_t_2 = -1;
-      if (__pyx_t_1 < 0) {
-        __pyx_t_1 += __pyx_pybuffernd_mapInfo.diminfo[0].shape;
-        if (unlikely(__pyx_t_1 < 0)) __pyx_t_2 = 0;
-      } else if (unlikely(__pyx_t_1 >= __pyx_pybuffernd_mapInfo.diminfo[0].shape)) __pyx_t_2 = 0;
-      if (unlikely(__pyx_t_2 != -1)) {
-        __Pyx_RaiseBufferIndexError(__pyx_t_2);
-        __PYX_ERR(0, 169, __pyx_L1_error)
-      }
-      (void)(__pyx_f_3MCL_roundToMapResolution(__pyx_v_currentRange, (*__Pyx_BufPtrStrided1d(__pyx_t_5numpy_double_t *, __pyx_pybuffernd_mapInfo.rcbuffer->pybuffer.buf, __pyx_t_1, __pyx_pybuffernd_mapInfo.diminfo[0].strides))));
       __pyx_L6_continue:;
     }
 
-    /* "mcl.pyx":171
- *             roundToMapResolution(currentRange, mapInfo[2])
+    /* "mcl.pyx":170
+ *             rangesDifference = np.append(rangesDifference, (rangesSampled[j] - roundToMapResolution(currentRange, mapInfo[2])))
  *         # calculate the norm of those ranges differences
  *         particleDifference = np.linalg.norm(rangesDifference)             # <<<<<<<<<<<<<<
  * 
  *         # Calculate the weight (not normalized) of that particle
  */
-    __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_n_s_np); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 171, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_n_s_np); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 170, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
-    __pyx_t_27 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_n_s_linalg); if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 171, __pyx_L1_error)
+    __pyx_t_27 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_n_s_linalg); if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 170, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_27);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_27, __pyx_n_s_norm); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 171, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_27, __pyx_n_s_norm); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 170, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_DECREF(__pyx_t_27); __pyx_t_27 = 0;
     __pyx_t_27 = NULL;
@@ -4354,13 +4335,13 @@ static PyObject *__pyx_pf_3MCL_2predictRangeAndCalculateDeviation(CYTHON_UNUSED 
     }
     __pyx_t_5 = (__pyx_t_27) ? __Pyx_PyObject_Call2Args(__pyx_t_6, __pyx_t_27, ((PyObject *)__pyx_v_rangesDifference)) : __Pyx_PyObject_CallOneArg(__pyx_t_6, ((PyObject *)__pyx_v_rangesDifference));
     __Pyx_XDECREF(__pyx_t_27); __pyx_t_27 = 0;
-    if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 171, __pyx_L1_error)
+    if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 170, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_XDECREF_SET(__pyx_v_particleDifference, __pyx_t_5);
     __pyx_t_5 = 0;
 
-    /* "mcl.pyx":174
+    /* "mcl.pyx":173
  * 
  *         # Calculate the weight (not normalized) of that particle
  *         weight = (1/(libc.math.sqrt(2*libc.math.pi)*laserDeviation)) * \             # <<<<<<<<<<<<<<
@@ -4370,31 +4351,31 @@ static PyObject *__pyx_pf_3MCL_2predictRangeAndCalculateDeviation(CYTHON_UNUSED 
     __pyx_t_24 = (sqrt((2.0 * M_PI)) * __pyx_v_laserDeviation);
     if (unlikely(__pyx_t_24 == 0)) {
       PyErr_SetString(PyExc_ZeroDivisionError, "float division");
-      __PYX_ERR(0, 174, __pyx_L1_error)
+      __PYX_ERR(0, 173, __pyx_L1_error)
     }
 
-    /* "mcl.pyx":175
+    /* "mcl.pyx":174
  *         # Calculate the weight (not normalized) of that particle
  *         weight = (1/(libc.math.sqrt(2*libc.math.pi)*laserDeviation)) * \
  *             libc.math.exp(-(particleDifference**2)/(2*laserDeviation**2))             # <<<<<<<<<<<<<<
  * 
  *         particlesWeight[i] = weight
  */
-    __pyx_t_5 = PyNumber_Power(__pyx_v_particleDifference, __pyx_int_2, Py_None); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 175, __pyx_L1_error)
+    __pyx_t_5 = PyNumber_Power(__pyx_v_particleDifference, __pyx_int_2, Py_None); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 174, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
-    __pyx_t_6 = PyNumber_Negative(__pyx_t_5); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 175, __pyx_L1_error)
+    __pyx_t_6 = PyNumber_Negative(__pyx_t_5); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 174, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    __pyx_t_5 = __Pyx_PyInt_From_npy_long((2 * __Pyx_pow___pyx_t_5numpy_int_t(__pyx_v_laserDeviation, 2))); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 175, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyInt_From_npy_long((2 * __Pyx_pow___pyx_t_5numpy_int_t(__pyx_v_laserDeviation, 2))); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 174, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
-    __pyx_t_27 = __Pyx_PyNumber_Divide(__pyx_t_6, __pyx_t_5); if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 175, __pyx_L1_error)
+    __pyx_t_27 = __Pyx_PyNumber_Divide(__pyx_t_6, __pyx_t_5); if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 174, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_27);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    __pyx_t_28 = __pyx_PyFloat_AsDouble(__pyx_t_27); if (unlikely((__pyx_t_28 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 175, __pyx_L1_error)
+    __pyx_t_28 = __pyx_PyFloat_AsDouble(__pyx_t_27); if (unlikely((__pyx_t_28 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 174, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_27); __pyx_t_27 = 0;
 
-    /* "mcl.pyx":174
+    /* "mcl.pyx":173
  * 
  *         # Calculate the weight (not normalized) of that particle
  *         weight = (1/(libc.math.sqrt(2*libc.math.pi)*laserDeviation)) * \             # <<<<<<<<<<<<<<
@@ -4403,7 +4384,7 @@ static PyObject *__pyx_pf_3MCL_2predictRangeAndCalculateDeviation(CYTHON_UNUSED 
  */
     __pyx_v_weight = ((1.0 / __pyx_t_24) * exp(__pyx_t_28));
 
-    /* "mcl.pyx":177
+    /* "mcl.pyx":176
  *             libc.math.exp(-(particleDifference**2)/(2*laserDeviation**2))
  * 
  *         particlesWeight[i] = weight             # <<<<<<<<<<<<<<
@@ -4418,13 +4399,13 @@ static PyObject *__pyx_pf_3MCL_2predictRangeAndCalculateDeviation(CYTHON_UNUSED 
     } else if (unlikely(__pyx_t_1 >= __pyx_pybuffernd_particlesWeight.diminfo[0].shape)) __pyx_t_2 = 0;
     if (unlikely(__pyx_t_2 != -1)) {
       __Pyx_RaiseBufferIndexError(__pyx_t_2);
-      __PYX_ERR(0, 177, __pyx_L1_error)
+      __PYX_ERR(0, 176, __pyx_L1_error)
     }
     *__Pyx_BufPtrStrided1d(double *, __pyx_pybuffernd_particlesWeight.rcbuffer->pybuffer.buf, __pyx_t_1, __pyx_pybuffernd_particlesWeight.diminfo[0].strides) = __pyx_v_weight;
     __pyx_L3_continue:;
   }
 
-  /* "mcl.pyx":180
+  /* "mcl.pyx":179
  * 
  *     #with gil:
  *     return particlesWeight             # <<<<<<<<<<<<<<

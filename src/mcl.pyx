@@ -166,7 +166,6 @@ def predictRangeAndCalculateDeviation(double[:, ::1] particlePosition, np.ndarra
                 currentRange = minRange
 	        
             rangesDifference = np.append(rangesDifference, (rangesSampled[j] - roundToMapResolution(currentRange, mapInfo[2])))
-            roundToMapResolution(currentRange, mapInfo[2])
         # calculate the norm of those ranges differences
         particleDifference = np.linalg.norm(rangesDifference)
 
