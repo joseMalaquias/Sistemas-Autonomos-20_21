@@ -64,7 +64,7 @@ cimport cython
 @cython.wraparound(False)  # turn off negative index wrapping for entire function
 # LASER BEAMS need to be modified if modified in mcl.py
 #https://cython.readthedocs.io/en/latest/src/tutorial/numpy.html
-def measurePrediction(double[:, ::1] particlePosition, np.double_t resolution, np.ndarray[dtype = np.double_t, ndim = 1] laserDetails, double[:] anglesSampled, double[:, ::1] obstacleDistanceMap, np.int_t numParticles):
+def measurePrediction (double[:, ::1] particlePosition, np.double_t resolution, np.ndarray[dtype = np.double_t, ndim = 1] laserDetails, double[:] anglesSampled, double[:, ::1] obstacleDistanceMap, np.int_t numParticles):
 
     cdef np.float64_t minRange = laserDetails[0] / resolution
     cdef np.float64_t maxRange = laserDetails[1] / resolution

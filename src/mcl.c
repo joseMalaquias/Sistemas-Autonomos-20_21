@@ -2725,7 +2725,7 @@ static double __pyx_f_3MCL_convertToGrid(double __pyx_v_coordinate, double __pyx
 /* "mcl.pyx":67
  * # LASER BEAMS need to be modified if modified in mcl.py
  * #https://cython.readthedocs.io/en/latest/src/tutorial/numpy.html
- * def measurePrediction(double[:, ::1] particlePosition, np.double_t resolution, np.ndarray[dtype = np.double_t, ndim = 1] laserDetails, double[:] anglesSampled, double[:, ::1] obstacleDistanceMap, np.int_t numParticles):             # <<<<<<<<<<<<<<
+ * def measurePrediction (double[:, ::1] particlePosition, np.double_t resolution, np.ndarray[dtype = np.double_t, ndim = 1] laserDetails, double[:] anglesSampled, double[:, ::1] obstacleDistanceMap, np.int_t numParticles):             # <<<<<<<<<<<<<<
  * 
  *     cdef np.float64_t minRange = laserDetails[0] / resolution
  */
@@ -2903,7 +2903,7 @@ static PyObject *__pyx_pf_3MCL_measurePrediction(CYTHON_UNUSED PyObject *__pyx_s
   __pyx_pybuffernd_laserDetails.diminfo[0].strides = __pyx_pybuffernd_laserDetails.rcbuffer->pybuffer.strides[0]; __pyx_pybuffernd_laserDetails.diminfo[0].shape = __pyx_pybuffernd_laserDetails.rcbuffer->pybuffer.shape[0];
 
   /* "mcl.pyx":69
- * def measurePrediction(double[:, ::1] particlePosition, np.double_t resolution, np.ndarray[dtype = np.double_t, ndim = 1] laserDetails, double[:] anglesSampled, double[:, ::1] obstacleDistanceMap, np.int_t numParticles):
+ * def measurePrediction (double[:, ::1] particlePosition, np.double_t resolution, np.ndarray[dtype = np.double_t, ndim = 1] laserDetails, double[:] anglesSampled, double[:, ::1] obstacleDistanceMap, np.int_t numParticles):
  * 
  *     cdef np.float64_t minRange = laserDetails[0] / resolution             # <<<<<<<<<<<<<<
  *     cdef np.float64_t maxRange = laserDetails[1] / resolution
@@ -3265,7 +3265,7 @@ static PyObject *__pyx_pf_3MCL_measurePrediction(CYTHON_UNUSED PyObject *__pyx_s
   /* "mcl.pyx":67
  * # LASER BEAMS need to be modified if modified in mcl.py
  * #https://cython.readthedocs.io/en/latest/src/tutorial/numpy.html
- * def measurePrediction(double[:, ::1] particlePosition, np.double_t resolution, np.ndarray[dtype = np.double_t, ndim = 1] laserDetails, double[:] anglesSampled, double[:, ::1] obstacleDistanceMap, np.int_t numParticles):             # <<<<<<<<<<<<<<
+ * def measurePrediction (double[:, ::1] particlePosition, np.double_t resolution, np.ndarray[dtype = np.double_t, ndim = 1] laserDetails, double[:] anglesSampled, double[:, ::1] obstacleDistanceMap, np.int_t numParticles):             # <<<<<<<<<<<<<<
  * 
  *     cdef np.float64_t minRange = laserDetails[0] / resolution
  */
@@ -21120,7 +21120,7 @@ static CYTHON_SMALL_CODE int __Pyx_InitCachedConstants(void) {
   /* "mcl.pyx":67
  * # LASER BEAMS need to be modified if modified in mcl.py
  * #https://cython.readthedocs.io/en/latest/src/tutorial/numpy.html
- * def measurePrediction(double[:, ::1] particlePosition, np.double_t resolution, np.ndarray[dtype = np.double_t, ndim = 1] laserDetails, double[:] anglesSampled, double[:, ::1] obstacleDistanceMap, np.int_t numParticles):             # <<<<<<<<<<<<<<
+ * def measurePrediction (double[:, ::1] particlePosition, np.double_t resolution, np.ndarray[dtype = np.double_t, ndim = 1] laserDetails, double[:] anglesSampled, double[:, ::1] obstacleDistanceMap, np.int_t numParticles):             # <<<<<<<<<<<<<<
  * 
  *     cdef np.float64_t minRange = laserDetails[0] / resolution
  */
@@ -21610,7 +21610,7 @@ if (!__Pyx_RefNanny) {
   /* "mcl.pyx":67
  * # LASER BEAMS need to be modified if modified in mcl.py
  * #https://cython.readthedocs.io/en/latest/src/tutorial/numpy.html
- * def measurePrediction(double[:, ::1] particlePosition, np.double_t resolution, np.ndarray[dtype = np.double_t, ndim = 1] laserDetails, double[:] anglesSampled, double[:, ::1] obstacleDistanceMap, np.int_t numParticles):             # <<<<<<<<<<<<<<
+ * def measurePrediction (double[:, ::1] particlePosition, np.double_t resolution, np.ndarray[dtype = np.double_t, ndim = 1] laserDetails, double[:] anglesSampled, double[:, ::1] obstacleDistanceMap, np.int_t numParticles):             # <<<<<<<<<<<<<<
  * 
  *     cdef np.float64_t minRange = laserDetails[0] / resolution
  */

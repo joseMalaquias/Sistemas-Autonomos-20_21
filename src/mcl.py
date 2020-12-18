@@ -17,9 +17,7 @@ from multiprocessing import Queue, Process
 
 from scipy import ndimage
 
-import mcl
-
-#import time
+import MCL as mcl
 
 # ROS messages
 
@@ -233,7 +231,6 @@ class particleFilter():
 
                 # Calculates the predicted ranges to each particle using
                 # multiprocessing
-		#startTime = time.time()
                 #self.particlesInGrid[:, 0], self.particlesInGrid[:, 1] = \
                 #    self.convertToGridArray(
                 #    self.particlesPose[:, 0], self.particlesPose[:, 1])
@@ -247,15 +244,9 @@ class particleFilter():
 
                 #for i in range(self.numParticles):
                 #    self.measurePredictionDeviation(self.particlesPose[i], i)
-		#endTime = time.time()
-		#print("Non Optimized took %f" %(endTime - startTime))
 
-		#startTime = time.time()
-		#predictedWeightsOptimized = mcl.predictRangeAndCalculateDeviation(self.particlesPose, np.array((self.mapInfo.origin.position.x, self.mapInfo.origin.position.y, self.mapInfo.resolution)), np.array(
-                #    (self.callbacks.range_min, self.callbacks.range_max)), self.anglesSampled, self.rangeSampled, self.obstacleDistanceMap, self.numParticles)
-		#endTime = time.time()
-		#print("Optimized took %f" %(endTime - startTime))
-		#print((self.particleWeight == predictedWeightsOptimized).all())
+		# Calculates the predicted ranges of each particle and its difference to the true ranges
+		# Using a optimized function created in C/Python
 		self.particleWeight = mcl.predictRangeAndCalculateDeviation(self.particlesPose, np.array((self.mapInfo.origin.position.x, self.mapInfo.origin.position.y, self.mapInfo.resolution)), np.array(
                     (self.callbacks.range_min, self.callbacks.range_max)), self.anglesSampled, self.rangeSampled, self.obstacleDistanceMap, self.numParticles)
 
@@ -342,40 +333,40 @@ class particleFilter():
             y_mov + noise_y
         self.particlesPose[i, 2] += self.yaw + noise_yaw
 
-    def measurePredictionDeviation(self, particlePos, index):
-        """
-        Calculates the difference between the real laser ranges and
-        the predicted particle ranges.
-        Calculates the weight (not normalized) of each particle.
-        """
-        rangesDifference = np.array([])
-        x, y = self.convertToGrid(particlePos[0], particlePos[1])
-
-        # If particle is out of bounds, attribute a weight of zero
-        if(self.map[y, x] == 0):
-            self.particleWeight = np.append(
-                self.particleWeight, np.exp(-400**2))
-            return
-
-        # For all angles, calculate the difference between the ranges
-        for i in range(self.desired_LaserBeams):
-            # in case of the laser value being infinite, do not take
-            # this measure into account
-            if self.rangeSampled[i] == float("inf"):
-                continue
-            rangesDifference = np.append(
-                rangesDifference, (self.rangeSampled[i] -
-                                   self.predictedRanges[index, i]))
-
-        # calculate the norm of those ranges differences
-        particleDifference = np.linalg.norm(rangesDifference)
-        laserDeviation = 10
-
-        # Calculate the weight (not normalized) of that particle
-        weight = (1/(math.sqrt(2*math.pi)*laserDeviation)) * \
-            math.exp(-(particleDifference**2)/(2*laserDeviation**2))
-
-        self.particleWeight = np.append(self.particleWeight, weight)
+#    def measurePredictionDeviation(self, particlePos, index):
+#        """
+#        Calculates the difference between the real laser ranges and
+#        the predicted particle ranges.
+#        Calculates the weight (not normalized) of each particle.
+#        """
+#        rangesDifference = np.array([])
+#        x, y = self.convertToGrid(particlePos[0], particlePos[1])
+#
+#        # If particle is out of bounds, attribute a weight of zero
+#        if(self.map[y, x] == 0):
+#            self.particleWeight = np.append(
+#                self.particleWeight, np.exp(-400**2))
+#            return
+#
+#        # For all angles, calculate the difference between the ranges
+#        for i in range(self.desired_LaserBeams):
+#            # in case of the laser value being infinite, do not take
+#            # this measure into account
+#            if self.rangeSampled[i] == float("inf"):
+#                continue
+#            rangesDifference = np.append(
+#                rangesDifference, (self.rangeSampled[i] -
+#                                   self.predictedRanges[index, i]))
+#
+#        # calculate the norm of those ranges differences
+#        particleDifference = np.linalg.norm(rangesDifference)
+#        laserDeviation = 10
+#
+#        # Calculate the weight (not normalized) of that particle
+#        weight = (1/(math.sqrt(2*math.pi)*laserDeviation)) * \
+#            math.exp(-(particleDifference**2)/(2*laserDeviation**2))
+#
+#        self.particleWeight = np.append(self.particleWeight, weight)
 
     def weightCalculation(self):
         """
@@ -567,27 +558,27 @@ class particleFilter():
 
         return
 
-    def convertToGrid(self, x, y):
-        """
-        Converts from real world coordinates to Grid Map coordinates
-        """
-        x_grid = int((x - self.mapInfo.origin.position.x) /
-                     self.mapInfo.resolution)
-        y_grid = int((y - self.mapInfo.origin.position.y) /
-                     self.mapInfo.resolution)
-        return x_grid, y_grid
+#    def convertToGrid(self, x, y):
+#        """
+#        Converts from real world coordinates to Grid Map coordinates
+#        """
+#        x_grid = int((x - self.mapInfo.origin.position.x) /
+#                     self.mapInfo.resolution)
+#        y_grid = int((y - self.mapInfo.origin.position.y) /
+#                     self.mapInfo.resolution)
+#        return x_grid, y_grid
 
-    def convertToGridArray(self, x, y):
-        """
-        Converts an array from real world coordinates to Grid Map coordinates
-        """
-        x_grid = (x - self.mapInfo.origin.position.x) / self.mapInfo.resolution
-        y_grid = (y - self.mapInfo.origin.position.y) / self.mapInfo.resolution
-
-        # x_grid.astype(int)
-        # y_grid.astype(int)
-
-        return x_grid, y_grid
+#    def convertToGridArray(self, x, y):
+#        """
+#        Converts an array from real world coordinates to Grid Map coordinates
+#        """
+#        x_grid = (x - self.mapInfo.origin.position.x) / self.mapInfo.resolution
+#        y_grid = (y - self.mapInfo.origin.position.y) / self.mapInfo.resolution
+#
+#        # x_grid.astype(int)
+#        # y_grid.astype(int)
+#
+#        return x_grid, y_grid
 
     def publishParticles(self):
         """
