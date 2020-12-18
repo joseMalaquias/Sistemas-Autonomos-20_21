@@ -17,8 +17,9 @@ from multiprocessing import Queue, Process
 
 from scipy import ndimage
 
-import measurePrediction
+import mcl
 
+#import time
 
 # ROS messages
 
@@ -232,24 +233,34 @@ class particleFilter():
 
                 # Calculates the predicted ranges to each particle using
                 # multiprocessing
+		#startTime = time.time()
+                #self.particlesInGrid[:, 0], self.particlesInGrid[:, 1] = \
+                #    self.convertToGridArray(
+                #    self.particlesPose[:, 0], self.particlesPose[:, 1])
+                #self.particlesInGrid[:, 2] = self.particlesPose[:, 2]
 
-                self.particlesInGrid[:, 0], self.particlesInGrid[:, 1] = \
-                    self.convertToGridArray(
-                    self.particlesPose[:, 0], self.particlesPose[:, 1])
-                self.particlesInGrid[:, 2] = self.particlesPose[:, 2]
-
-                self.predictedRanges = measurePrediction.measurePrediction(self.particlesInGrid, self.mapInfo.resolution, np.array(
-                    (self.callbacks.range_min, self.callbacks.range_max)), self.anglesSampled, self.obstacleDistanceMap, self.numParticles)
+                #self.predictedRanges = mcl.measurePrediction(self.particlesInGrid, self.mapInfo.resolution, np.array(
+                #   (self.callbacks.range_min, self.callbacks.range_max)), self.anglesSampled, self.obstacleDistanceMap, self.numParticles)
 
                 # Calculates the difference between the robot true ranges and
                 # the particle predicted ranges
 
-                for i in range(self.numParticles):
-                    self.measurePredictionDeviation(self.particlesPose[i], i)
+                #for i in range(self.numParticles):
+                #    self.measurePredictionDeviation(self.particlesPose[i], i)
+		#endTime = time.time()
+		#print("Non Optimized took %f" %(endTime - startTime))
+
+		#startTime = time.time()
+		#predictedWeightsOptimized = mcl.predictRangeAndCalculateDeviation(self.particlesPose, np.array((self.mapInfo.origin.position.x, self.mapInfo.origin.position.y, self.mapInfo.resolution)), np.array(
+                #    (self.callbacks.range_min, self.callbacks.range_max)), self.anglesSampled, self.rangeSampled, self.obstacleDistanceMap, self.numParticles)
+		#endTime = time.time()
+		#print("Optimized took %f" %(endTime - startTime))
+		#print((self.particleWeight == predictedWeightsOptimized).all())
+		self.particleWeight = mcl.predictRangeAndCalculateDeviation(self.particlesPose, np.array((self.mapInfo.origin.position.x, self.mapInfo.origin.position.y, self.mapInfo.resolution)), np.array(
+                    (self.callbacks.range_min, self.callbacks.range_max)), self.anglesSampled, self.rangeSampled, self.obstacleDistanceMap, self.numParticles)
 
                 # Calculates the weights
                 self.weightCalculation()
-		
                 # Resamples the particles
 
                 if self.neff < (2*self.numParticles)/3:
@@ -347,7 +358,7 @@ class particleFilter():
             return
 
         # For all angles, calculate the difference between the ranges
-        for i in range(len(self.predictedRanges[index])):
+        for i in range(self.desired_LaserBeams):
             # in case of the laser value being infinite, do not take
             # this measure into account
             if self.rangeSampled[i] == float("inf"):

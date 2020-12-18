@@ -4,8 +4,8 @@ from Cython.Build import cythonize
 
 ext_modules = [
     Extension(
-        "measurePrediction",
-        ["measurePrediction.pyx"],
+        "MCL",
+        ["mcl.pyx"],
         extra_compile_args=['-O3', '-fopenmp'],
         extra_link_args=['-fopenmp'],
     )
